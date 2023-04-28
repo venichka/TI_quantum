@@ -3,7 +3,9 @@ module TI_quantum
 using BigCombinatorics
 using Nemo
 
-export path, heaviside, u, v, c_l_hyper, Factorial_1, Binomial_1
+export path, heaviside, Factorial_1, Binomial_1
+export u, v, c_l_hyper, p_ab
+export op_average, g2_function, e_field_average, e_field_k_average
 
 # function definitions go here
 
@@ -169,5 +171,272 @@ function c_l_hyper(n_1::Int, n_2::Int, l::Int, r::Real; precision=4096)
             CC(abs(v_0)^2 / abs(u_0)^2); flags=1)
     )
 end
+
+
+"""
+    `TI_quantum.p_ab(alpha::Complex, beta::Complex, n_1::Int, 
+              n_2::Int, r::Real, num::Int; precision=4096)`
+
+Computes the probability to detect `n_1` and `n_2` photons in `+k` and `-k` modes, respectively, after the time interface.
+
+# Arguments:
+- `alpha`: initial value for `+k` mode.
+- `beta`: initial value for `-k` mode.
+- `n_1`: The number of particles in the `+k` mode.
+- `n_2`: The number of particles in the '-k mode.
+- `r`: The ratio of refractive indices: `before TI / after TI`.
+- `num`: Number terms in sum.
+
+# Returns:
+- The probability to detect `n_1` and `n_2` photons in `+k` and `-k` modes.
+"""
+function p_ab(alpha::Complex, beta::Complex, n_1::Int, 
+              n_2::Int, r::Real, num::Int; precision=4096)
+    CC = AcbField(precision)
+    alpha = CC(real(alpha))
+    beta = CC(real(beta))
+    (exp(-abs(alpha)^2.0 - abs(beta)^2.0) *
+    sum([abs(alpha)^(2.0*n) * abs(beta)^(2.0*(n - n_1 + n_2)) *
+    (1/(Factorial_1(n) * Factorial_1(n -  n_1 + n_2))) * 
+    abs(c_l_hyper(n, n-n_1+n_2, min(n_1, n_2) - min(n, n-n_1+n_2), r))^2.0
+    for n = abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2))):abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2)))+num]) )
+end
+
+
+"""
+`op_average(alpha::Number, beta::Number, r::Real, num::Int, op::String)`
+
+Compute the average value of the operator over the coherent states
+
+# Operators
+- `"a_k"`
+- `"a^dag_k"`
+- `"a_-k"`
+- `"a^dag_-k"`
+- `"n_1"`
+- `"n_2"`
+- `"adk_adk_ak_ak"`
+- `"ad-k_ad-k_a-k_a-k"`
+- `"adk_ad-k_a-k_ak"`
+"""
+function op_average(alpha::Number, beta::Number, r::Real, num::Int, op::String)
+    if op == "a_k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n)-> n_1(n_01, n_02, s_0, n) - 1 - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
+                                    (n_1(n_01, n_02, s_0, n) - 1 - 
+                                    min(n_1(n_01, n_02, s_0, n), 
+                                        n_2(n_01, n_02, s_0, n))))
+        sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_1(n_01, n_02, s_0, n) + 
+                                                s(n_01, n_02, s_0, n) - 
+                                                min(n_1(n_01, n_02, s_0, n),
+                                                    n_2(n_01, n_02, s_0, n)))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 + 1) * 
+                                    Int(floor(heaviside(n_01 - n_02 + 1))))
+    elseif op == "a^dag_k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) + 1 - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
+                                    (n_1(n_01, n_02, s_0, n) + 1 - 
+                                    min(n_1(n_01, n_02, s_0, n), 
+                                        n_2(n_01, n_02, s_0, n))))
+        sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_1(n_01, n_02, s_0, n) + 
+                                                s(n_01, n_02, s_0, n) + 1 - 
+                                                min(n_1(n_01, n_02, s_0, n),
+                                                    n_2(n_01, n_02, s_0, n)))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 - 1) * 
+                                    Int(floor(heaviside(n_01 - n_02 - 1))))
+    elseif op == "a_-k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) + 1 - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
+                                    (n_1(n_01, n_02, s_0, n) - 
+                                    min(n_1(n_01, n_02, s_0, n), 
+                                        n_2(n_01, n_02, s_0, n))))
+        sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_2(n_01, n_02, s_0, n) + 
+                                                s(n_01, n_02, s_0, n) - 
+                                                min(n_1(n_01, n_02, s_0, n),
+                                                    n_2(n_01, n_02, s_0, n)))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 - 1) * 
+                                    Int(floor(heaviside(n_01 - n_02 - 1))))
+    elseif op == "a^dag_-k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - 1 - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
+                                    (n_1(n_01, n_02, s_0, n) - 
+                                    min(n_1(n_01, n_02, s_0, n), 
+                                        n_2(n_01, n_02, s_0, n))))
+        sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_2(n_01, n_02, s_0, n) + 
+                                                s(n_01, n_02, s_0, n) + 1 - 
+                                                min(n_1(n_01, n_02, s_0, n),
+                                                    n_2(n_01, n_02, s_0, n)))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 + 1) * 
+                                    Int(floor(heaviside(n_01 - n_02 + 1))))
+    elseif op == "n_k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> s_0
+        sqrt_fun = (n_01, n_02, s_0, n) -> (n_1(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n)))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
+                                    Int(floor(heaviside(n_01 - n_02))))
+    elseif op == "n_-k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> s_0
+        sqrt_fun = (n_01, n_02, s_0, n) -> (n_2(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n)))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
+                                    Int(floor(heaviside(n_01 - n_02))))
+    elseif op == "adk_adk_ak_ak"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> s_0
+        sqrt_fun = (n_01, n_02, s_0, n) -> ((n_1(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n))) * 
+                                            (n_1(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n))-1))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
+                                    Int(floor(heaviside(n_01 - n_02))))
+    elseif op == "ad-k_ad-k_a-k_a-k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> s_0
+        sqrt_fun = (n_01, n_02, s_0, n) -> ((n_2(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n))) * 
+                                            (n_2(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n))-1))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
+                                    Int(floor(heaviside(n_01 - n_02))))
+    elseif op == "ad-k_adk_ak_a-k"
+        n_1 = (n_01, n_02, s_0, n) -> n
+        n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
+        s = (n_01, n_02, s_0, n) -> s_0
+        sqrt_fun = (n_01, n_02, s_0, n) -> ((n_1(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n))) * 
+                                            (n_2(n_01, n_02, s_0, n) + 
+                                            s(n_01, n_02, s_0, n) - 
+                                            min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n))))
+        lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
+                                    Int(floor(heaviside(n_01 - n_02))))
+    end
+
+    result_re = Threads.Atomic{Float64}(0)
+    result_im = Threads.Atomic{Float64}(0)
+    lk = ReentrantLock()
+    Threads.@threads for ijk in CartesianIndices((num, num, num))
+        i, j, k = Tuple(ijk)[1], Tuple(ijk)[2], Tuple(ijk)[3]
+        n_01 = i - 1
+        n_02 = j - 1
+        if op == "a^dag_k"
+            if n_01 > n_02
+                s_0 = k - 1
+            else
+                s_0 = k
+            end
+        elseif op == "a^dag_-k"
+            if n_02 > n_01
+                s_0 = k - 1
+            else
+                s_0 = k
+            end
+        else
+            s_0 = k - 1
+        end
+            
+        for n = lim_fun(n_01, n_02):lim_fun(n_01, n_02) + num
+            result_01 = (conj(alpha)^n_01*conj(beta)^n_02*alpha^n_1(n_01, n_02, s_0, n)*beta^n_2(n_01, n_02, s_0, n)) 
+            
+            result_02 = convert(ComplexF64, (
+            (1/sqrt(Factorial_1(n_01)*Factorial_1(n_02)*
+                    Factorial_1(n_1(n_01, n_02, s_0, n))*
+                    Factorial_1(n_2(n_01, n_02, s_0, n)))) * 
+            conj(c_l_hyper(n_01,n_02,s_0-min(n_01, n_02), r))*
+            c_l_hyper(n_1(n_01, n_02, s_0, n), n_2(n_01, n_02, s_0, n), 
+                        s(n_01, n_02, s_0, n)-min(n_1(n_01, n_02, s_0, n),
+                                                n_2(n_01, n_02, s_0, n)), r)
+            )) * sqrt_fun(n_01, n_02, s_0, n)
+
+            result = result_01 * result_02
+            
+            lock(lk) do
+                Threads.atomic_add!(result_re, convert(Float64, real(result)))
+                Threads.atomic_add!(result_im, convert(Float64, imag(result)))
+            end
+        end
+    end
+    exp(-abs(alpha)^2 - abs(beta)^2) * (result_re[] + im*result_im[])
+end
+
+
+"""
+`e_field_average(r::Real, k::Real, t::Real, omega::Real, a_k, a_mk)`
+
+Compute the average value of the E field operator over the coherent states. Note that the dimentional coefficient is omitted.
+
+"""
+function e_field_average(r::Real, k::Real, t::Real, omega::Real, a_k, a_mk)
+    (im .* (
+        a_k .* exp(im*(k*r - omega*t)) .- conj.(a_k) .* exp(-im*(k*r - omega*t)) .+
+        a_mk.* exp(im*(-k*r -omega*t)) .- conj.(a_mk) .* exp(im*(k*r + omega*t))
+    ))
+end
+
+
+"""
+`e_field_k_average(r::Real, k::Real, t::Real, omega::Real, a_k)`
+
+Compute the average value of the E field operator over the coherent states. Note that the dimentional coefficient is omitted.
+
+"""
+function e_field_k_average(r::Real, k::Real, t::Real, omega::Real, a_k)
+    (im .* (
+        a_k .* exp(im*(k*r - omega*t)) .- conj.(a_k) .* exp(-im*(k*r - omega*t)) ))
+end
+
+
+"""
+`g2_function(alpha::Number, beta::Number, r::Real, num::Int, 
+                        mode::String; num_1 = num)`
+
+Compute the g^{(2)}(0) function for 
+- `a_k` operators (`mode = "k"`)
+- `a_-k` operators (`mode = "-k"`)
+- `a_k` and a_-k operators (`mode = "k,-k"`)
+
+"""
+function g2_function(alpha::Number, beta::Number, r::Real, num::Int, 
+                        mode::String; num_1 = num)
+    if mode == "k"
+        numerator_g2 = op_average(alpha, beta, r, num, "adk_adk_ak_ak")
+        denominator_g2 = op_average(alpha, beta, r, num_1, "n_k")
+        return numerator_g2 / denominator_g2^2, denominator_g2
+    elseif mode == "-k"
+        numerator_g2 = op_average(alpha, beta, r, num, "ad-k_ad-k_a-k_a-k")
+        denominator_g2 = op_average(alpha, beta, r, num_1, "n_-k")
+        return numerator_g2 / denominator_g2^2, denominator_g2
+    elseif mode == "k,-k"
+        numerator_g2 = op_average(alpha, beta, r, num, "ad-k_adk_ak_a-k")
+        denominator_g2_1 = op_average(alpha, beta, r, num_1, "n_-k")
+        denominator_g2_2 = op_average(alpha, beta, r, num_1, "n_k")
+        return numerator_g2 / denominator_g2_1 / denominator_g2_2, denominator_g2_1, denominator_g2_2
+    end
+end
+
 
 end # module
