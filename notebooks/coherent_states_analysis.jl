@@ -33,7 +33,7 @@ begin
 	        PATH_DATA = "/home/nikita/Documents/data/time_interfaces/"
 	    elseif home == "/Users/jimi"
 	        PATH_FIGS = "/Users/jimi/Google Drive/Work/In process/Projects/Time_interfaces/Figs/"
-	        PATH_DATA = "/Users/jimi/Google Drive/Work/In process/Projects/Time_interfaces/Figs/"
+	        PATH_DATA = "/Users/jimi/Google Drive/Work/In process/Projects/Time_interfaces/Data/"
 	    end
 	    return PATH_FIGS, PATH_DATA
 	end
@@ -42,11 +42,27 @@ begin
 	function heaviside(x)
 		0.5*(sign.(x) .+ 1)
 	end
+	
+
+	"""
+	`load_prob_data(PATH_DATA, alpha, beta, num)`
+	
+	Loads a dict with data according to the parameters specified in the workspace.
+	
+	**Output:**
+	- `data_dict_loaded`
+	"""
+	function load_prob_data(PATH_DATA, alpha, beta, num)
+	    NAME_PART = "alpha"*string(real(alpha))*"_beta"*string(real(beta))*"_numsum"*string(num)*".h5"
+	
+	    data_dict_loaded = load(PATH_DATA*"coh_photon_distrib_"*NAME_PART)
+	end
 end
 
 # ╔═╡ bc0e2e31-760e-43f8-9a61-7f6e721d9a7c
 begin
 	using Plots
+	using PyPlot
 	using BenchmarkTools
 	using BigCombinatorics
 	using Nemo
@@ -57,9 +73,14 @@ begin
 	PATH_FIGS, PATH_DATA = path()
 end
 
+# ╔═╡ 63508634-20f2-4358-8cdd-c2b96f9cc1a5
+md"""
+# Data analysis for coherent  states
+"""
+
 # ╔═╡ f3f76c55-83ca-4842-98fa-d7036ac5afd3
 md"""
-# Photon distribution for an initial coherent state
+## Photon distribution for an initial coherent state
 """
 
 # ╔═╡ 58ca203c-6b0b-4d3e-a4d6-5056ebb46270
@@ -136,9 +157,7 @@ end
 
 # ╔═╡ e0a55b3b-80d0-4179-8db1-dd4d006bccfa
 md"""
-## Computing the photon distribution
-
-The key tip to compute the distributions with the required accuracy is to use Nemo.jl library based on arblib.c
+## Loading the photon distribution
 """
 
 # ╔═╡ ff19c6f4-bf77-11ed-27f5-bfe29fe9ec7e
@@ -188,617 +207,350 @@ begin
 	end
 end
 
-# ╔═╡ 8baabf2e-5c73-4b28-8a5b-d2429526a18e
-begin
-	NMAX = 40
-	NMAX_r = 30
-	prob_ab_NMAX = zeros(NMAX, NMAX, NMAX_r)
-	r_list = range(0.01, 0.99, NMAX_r)
-	alpha = 5.0 + 1im
-	beta = 5.0 + 1im
+# ╔═╡ 3fcebe46-c539-4397-ba79-b5baf097381e
+	@bind idx PlutoUI.Slider(1:30, default=1)
+
+# ╔═╡ 720d822a-abcc-4a6d-80b9-f90b80b55b1a
+let
+	alpha = 10.0
+	beta = 10.0
+	num = 200
+	data_dict_prob = load_prob_data(PATH_DATA, alpha, beta, num)
+	
+	xs = [string(i) for i in data_dict_prob["n_1"]]
+	ys = [string(i) for i in data_dict_prob["n_2"]]
+	z = data_dict_prob["p_ab"][:, :, idx]
+	print(data_dict_prob["r"][idx])
+	heatmap(xs, ys, z, aspect_ratio = 1, 
+		xlabel = L"N_1",
+		ylabel = L"N_2",
+	)
+	annotate!([(xs[35], ys[107], Plots.text(L"r = "*string(round(data_dict_prob["r"][idx], digits=3)), 12, :white, :center))])
+end
+
+# ╔═╡ cb601515-0aee-4800-a01f-bae7462e8b62
+data_dict_prob_test = load_prob_data(PATH_DATA, 10.0, 10.0, 200)
+
+# ╔═╡ 36d80e39-0795-4394-81be-4bee686184c6
+let
+	alpha = 3.0
+	beta = 3.0
 	num = 100
-	print("done")
-end
+	data_dict_prob = load_prob_data(PATH_DATA, alpha, beta, num)
 
-# ╔═╡ 97c97540-edc5-4acb-8c13-72168885195f
-md"""
-## Field analysis
-
-We consider the average of the $\hat{\mathbf{E}}_j(\mathbf{r}, t)$ field for output coherent states, $|\alpha, \beta\rangle_j$. The field has two modes, $\mathbf{k}$ and $-\mathbf{k}$, and it is expressed using the following formula:
-
-$$\hat{\mathbf{E}}_j(\mathbf{r}, t) = i \sqrt{\frac{\hbar \omega_j}{2 \epsilon_0 \epsilon_j V}} \sum_{\mathbf{k} = \pm \mathbf{k}} \left[ \hat{a}_j(\mathbf{k}) e^{i\mathbf{k} \mathbf{r} - i \omega_j t} - \hat{a}^\dagger_j(\mathbf{k}) e^{-i\mathbf{k} \mathbf{r} + i \omega_j t}\right] \mathbf{e}(\mathbf{k}),$$
-where $\mathbf{e}(\mathbf{k}) = \mathbf{e}^*(\mathbf{k}) = \mathbf{e}(-\mathbf{k})$ is the polarization vector and $j$ is the index of the medium.
-
-We want to find the average of the field, therefore, according to the formula, we need to calculate the following averages:
-
-$$\langle \psi | \hat{a}_j(\mathbf{k}) | \psi \rangle, \;\; \\
-\langle \psi | \hat{a}^\dagger_j(\mathbf{k}) | \psi \rangle, \;\; \\
-\langle \psi | \hat{a}_j(-\mathbf{k}) | \psi \rangle, \;\; \\
-\langle \psi | \hat{a}^\dagger_j(-\mathbf{k}) | \psi \rangle$$
-We consider $|\psi\rangle = |\alpha, \beta\rangle$, where
-
-$$|\alpha, \beta\rangle = e^{-\frac{1}{2}\left(|\alpha|^2 + |\beta|^2\right)} \sum_{n_1=0}^\infty \sum_{n_2=0}^\infty \sum_{s=-\mathrm{min}(n_1, n_2)}^\infty \tilde{c}_s(n_1, n_2) |n_1 + s, n_2 + s\rangle_j,$$
-
-$$\tilde{c}_s(n_1, n_2) = \frac{\alpha^{n_1} \beta^{n_2}}{\sqrt{n_1! n_2!}} c_s(n_1, n_2)$$
-"""
-
-# ╔═╡ b399a931-097c-4e43-824c-0c06bbc85070
-md"""
-Each operator acts at the Fock state as:
-
-```math
-\begin{align}
-	&\hat{a}_j(\mathbf{k}) |n_1 + s, n_2 + s\rangle_j = \sqrt{n_1 + s} |n_1 + s - 1, n_2 + s\rangle_j \\
-	&\hat{a}^\dagger_j(\mathbf{k}) |n_1 + s, n_2 + s\rangle_j = \sqrt{n_1 + s + 1} |n_1 + s + 1, n_2 + s\rangle_j \\
-	&\hat{a}_j(-\mathbf{k}) |n_1 + s, n_2 + s\rangle_j = \sqrt{n_2 + s} |n_1 + s, n_2 + s - 1\rangle_j \\
-	&\hat{a}^\dagger_j(-\mathbf{k}) |n_1 + s, n_2 + s\rangle_j = \sqrt{n_2 + s + 1} |n_1 + s, n_2 + s + 1\rangle_j
-\end{align}
-```
-
-After the action of the operators, we need to project another coherent state onto the resulting state, e.g., $\sim \langle n_1' + s', n_2' + s'|n_1 + s - 1, n_2 + s \rangle$. This gives us the following systems (here we take into account that $s$ starts from $-\mathrm{min}(n_1, n_2)$):
-
-```math
-\begin{align}
-	&\hat{a}_j(\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1' + s' - \mathrm{min}(n_1', n_2') = n_1 - 1 + s - \mathrm{min}(n_1, n_2) \\
-			n_2' + s' - \mathrm{min}(n_1', n_2') = n_2 + s - \mathrm{min}(n_1, n_2)
-		\end{array}
-	\right.\\
-	&\hat{a}^\dagger_j(\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1' + s' - \mathrm{min}(n_1', n_2') = n_1 + 1 + s - \mathrm{min}(n_1, n_2) \\
-			n_2' + s' - \mathrm{min}(n_1', n_2') = n_2 + s - \mathrm{min}(n_1, n_2)
-		\end{array}
-	\right.\\
-	&\hat{a}_j(-\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1' + s' - \mathrm{min}(n_1', n_2') = n_1 + s - \mathrm{min}(n_1, n_2) \\
-			n_2' + s' - \mathrm{min}(n_1', n_2') = n_2 - 1 + s - \mathrm{min}(n_1, n_2)
-		\end{array}
-	\right.\\
-	&\hat{a}^\dagger_j(-\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1' + s' - \mathrm{min}(n_1', n_2') = n_1 + s - \mathrm{min}(n_1, n_2) \\
-			n_2' + s' - \mathrm{min}(n_1', n_2') = n_2 + 1 + s - \mathrm{min}(n_1, n_2)
-		\end{array}
-	\right.\\
-\end{align}
-```
-
-From these equations, we can express $n_1$, $n_2$ and $s$ using $n_1', n_2', s'$:
-
-```math
-\begin{align}
-	&\hat{a}_j(\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1 = n \\
-			n_2 = n_1 - 1 - n_1' + n_2' \\
-			s = n_1' + s' - \mathrm{min}(n_1', n_2') - \left( n_1 - 1 - \mathrm{min}(n_1, n_2) \right)
-		\end{array}
-	\right.\\
-	&\hat{a}^\dagger_j(\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1 = n \\
-			n_2 = n_1 + 1 - n_1' + n_2' \\
-			s = n_1' + s' - \mathrm{min}(n_1', n_2') - \left( n_1 + 1 - \mathrm{min}(n_1, n_2) \right)
-		\end{array}
-	\right.\\
-	&\hat{a}_j(-\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1 = n \\
-			n_2 = n_1 + 1 - n_1' + n_2' \\
-			s = n_1' + s' - \mathrm{min}(n_1', n_2') - \left( n_1 - \mathrm{min}(n_1, n_2) \right)
-		\end{array}
-	\right.\\
-	&\hat{a}^\dagger_j(-\mathbf{k}) \rightarrow \left\{ 
-		\begin{array}{ll}
-			n_1 = n \\
-			n_2 = n_1 - 1 - n_1' + n_2' \\
-			s = n_1' + s' - \mathrm{min}(n_1', n_2') - \left( n_1 - \mathrm{min}(n_1, n_2) \right)
-		\end{array}
-	\right.\\
-\end{align}
-```
-
-Further, taking into account that $n_1, n_2 \geq 0$, we find the lower boundary for the sum.
-"""
-
-# ╔═╡ 75b15476-dbf8-4d76-9db3-ea0bcd90ed2d
-md"""
-Thus, we have:
-
-```math
-\begin{align}
-&\langle \alpha, \beta | \hat{a}_j(\mathbf{k}) | \alpha, \beta \rangle = e^{-|\alpha|^2 - |\beta|^2} \sum_{n_1',n_2',s' = 0}^\infty \sum_{n=|n_1'-n_2'+1|\theta(n_1'-n_2'+1)}^\infty \tilde{c}^*_{s'-\mathrm{min}(n_1',n_2')}(n_1',n_2') \times \\
-&\tilde{c}_{n_1'+s'-\mathrm{min}(n_1',n_2') - \left(n-1\right)}(\underbrace{n}_{n_1}, \underbrace{n-1-n_1'+n_2'}_{n_2}) \times \\
-& \sqrt{\underbrace{n}_{n_1} + \underbrace{n_1' + s' -\mathrm{min}(n_1',n_2') - \left(n-1\right)}_{s-\mathrm{min}(n_1,n_2)}}
-\end{align}
-```
-
-```math
-\begin{align}
-&\langle \alpha, \beta | \hat{a}^\dagger_j(\mathbf{k}) | \alpha, \beta \rangle = e^{-|\alpha|^2 - |\beta|^2} \sum_{n_1',n_2',s' = 0}^\infty \sum_{n=|n_1'-n_2'-1|\theta(n_1'-n_2'-1)}^\infty \tilde{c}^*_{s'-\mathrm{min}(n_1',n_2')}(n_1',n_2') \times \\
-&\tilde{c}_{n_1'+s'-\mathrm{min}(n_1',n_2') - \left(n+1\right)}(n, n+1-n_1'+n_2') \times \\
-& \sqrt{n_1' + s' -\mathrm{min}(n_1',n_2')}
-\end{align}
-```
-
-```math
-\begin{align}
-&\langle \alpha, \beta | \hat{a}_j(-\mathbf{k}) | \alpha, \beta \rangle = e^{-|\alpha|^2 - |\beta|^2} \sum_{n_1',n_2',s' = 0}^\infty \sum_{n=|n_1'-n_2'-1|\theta(n_1'-n_2'-1)}^\infty \tilde{c}^*_{s'-\mathrm{min}(n_1',n_2')}(n_1',n_2') \times \\
-&\tilde{c}_{n_1'+s'-\mathrm{min}(n_1',n_2') - n}(n, n+1-n_1'+n_2') \times \\
-& \sqrt{n_2'+1+ s' -\mathrm{min}(n_1',n_2')}
-\end{align}
-```
-
-```math
-\begin{align}
-&\langle \alpha, \beta | \hat{a}^\dagger_j(-\mathbf{k}) | \alpha, \beta \rangle = e^{-|\alpha|^2 - |\beta|^2} \sum_{n_1',n_2',s' = 0}^\infty \sum_{n=|n_1'-n_2'+1|\theta(n_1'-n_2'+1)}^\infty \tilde{c}^*_{s'-\mathrm{min}(n_1',n_2')}(n_1',n_2') \times \\
-&\tilde{c}_{n_1'+s'-\mathrm{min}(n_1',n_2') - n}(n, n-1-n_1'+n_2') \times \\
-& \sqrt{n_2' + s' -\mathrm{min}(n_1',n_2')}
-\end{align}
-```
-"""
-
-# ╔═╡ 3d695e08-2725-491d-bd0b-817c12b104a7
-begin
-	# Selection rules for g2 and n
+	idx = [4, 16, 30]
 	
-	#		if op == "n_k" 
-	#			if n_01 >= n_02
-	#				s_0 = Int(heaviside(k - 1 + 1 + (n_02 - n_01)) * (k - 1 + 1 + (n_02 - n_01)))
-	#			else
-	#				s_0 = k - 1 + 1
-	#			end
-	#		elseif op ==  "n_-k"
-	#			if n_01 >= n_02
-	#				s_0 = k - 1 + 1
-	#			else
-	#				s_0 = Int(heaviside(k - 1 + 1 + (n_01 - n_02)) * (k - 1 + 1 + (n_01 - n_02)))
-	#			end
-	#		end
+	xs = [string(i) for i in data_dict_prob["n_1"]]
+	ys = [string(i) for i in data_dict_prob["n_2"]]
+	f = []
 
-	#		if op == "adk_adk_ak_ak"
-	#			if n_01 >= n_02
-	#				s_0 = Int(heaviside(k - 1 + 2 + (n_02 - n_01)) * (k - 1 + 2 + (n_02 - n_01)))
-	#			else
-	#				s_0 = k - 1 + 2
-	#			end
-	#		elseif op ==  "ad-k_ad-k_a-k_a-k"
-	#			if n_01 >= n_02
-	#				s_0 = k - 1 + 2
-	#			else
-	#				s_0 = Int(heaviside(k - 1 + 2 + (n_01 - n_02)) * (k - 1 + 2 + (n_01 - n_02)))
-	#			end
-	#		elseif op ==  "ad-k_adk_ak_a-k"
-	#			s_0 = k
-	#		end
-end
-
-# ╔═╡ 90f7590f-326a-43de-ad0f-842dcde0aa5d
-begin
-	"""
-	`op_average(alpha::Number, beta::Number, r::Real, num::Int, op::String)`
+	pyplot()
 	
-	Compute the average value of the operator over the coherent states
-
-	# Operators
-	- `"a_k"`
-	- `"a^dag_k"`
-	- `"a_-k"`
-	- `"a^dag_-k"`
-	- `"n_1"`
-	- `"n_2"`
-	- `"adk_adk_ak_ak"`
-	- `"ad-k_ad-k_a-k_a-k"`
-	- `"adk_ad-k_a-k_ak"`
-	"""
-	function op_average(alpha::Number, beta::Number, r::Real, num::Int, op::String)
-		if op == "a_k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n)-> n_1(n_01, n_02, s_0, n) - 1 - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
-									 (n_1(n_01, n_02, s_0, n) - 1 - 
-									  min(n_1(n_01, n_02, s_0, n), 
-										  n_2(n_01, n_02, s_0, n))))
-			sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_1(n_01, n_02, s_0, n) + 
-												    s(n_01, n_02, s_0, n) - 
-												    min(n_1(n_01, n_02, s_0, n),
-												        n_2(n_01, n_02, s_0, n)))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 + 1) * 
-									   Int(floor(heaviside(n_01 - n_02 + 1))))
-		elseif op == "a^dag_k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) + 1 - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
-									 (n_1(n_01, n_02, s_0, n) + 1 - 
-									  min(n_1(n_01, n_02, s_0, n), 
-										  n_2(n_01, n_02, s_0, n))))
-			sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_1(n_01, n_02, s_0, n) + 
-												    s(n_01, n_02, s_0, n) + 1 - 
-												    min(n_1(n_01, n_02, s_0, n),
-												        n_2(n_01, n_02, s_0, n)))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 - 1) * 
-									   Int(floor(heaviside(n_01 - n_02 - 1))))
-		elseif op == "a_-k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) + 1 - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
-									 (n_1(n_01, n_02, s_0, n) - 
-									  min(n_1(n_01, n_02, s_0, n), 
-										  n_2(n_01, n_02, s_0, n))))
-			sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_2(n_01, n_02, s_0, n) + 
-												    s(n_01, n_02, s_0, n) - 
-												    min(n_1(n_01, n_02, s_0, n),
-												        n_2(n_01, n_02, s_0, n)))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 - 1) * 
-									   Int(floor(heaviside(n_01 - n_02 - 1))))
-		elseif op == "a^dag_-k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - 1 - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> (n_01 + s_0 - min(n_01, n_02) - 
-									 (n_1(n_01, n_02, s_0, n) - 
-									  min(n_1(n_01, n_02, s_0, n), 
-										  n_2(n_01, n_02, s_0, n))))
-			sqrt_fun = (n_01, n_02, s_0, n) -> sqrt(n_2(n_01, n_02, s_0, n) + 
-												    s(n_01, n_02, s_0, n) + 1 - 
-												    min(n_1(n_01, n_02, s_0, n),
-												        n_2(n_01, n_02, s_0, n)))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02 + 1) * 
-									   Int(floor(heaviside(n_01 - n_02 + 1))))
-		elseif op == "n_k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> s_0
-			sqrt_fun = (n_01, n_02, s_0, n) -> (n_1(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n)))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
-									   Int(floor(heaviside(n_01 - n_02))))
-		elseif op == "n_-k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> s_0
-			sqrt_fun = (n_01, n_02, s_0, n) -> (n_2(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n)))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
-									   Int(floor(heaviside(n_01 - n_02))))
-		elseif op == "adk_adk_ak_ak"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> s_0
-			sqrt_fun = (n_01, n_02, s_0, n) -> ((n_1(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n))) * 
-												(n_1(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n))-1))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
-									   Int(floor(heaviside(n_01 - n_02))))
-		elseif op == "ad-k_ad-k_a-k_a-k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> s_0
-			sqrt_fun = (n_01, n_02, s_0, n) -> ((n_2(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n))) * 
-												(n_2(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n))-1))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
-									   Int(floor(heaviside(n_01 - n_02))))
-		elseif op == "ad-k_adk_ak_a-k"
-			n_1 = (n_01, n_02, s_0, n) -> n
-			n_2 = (n_01, n_02, s_0, n) -> n_1(n_01, n_02, s_0, n) - n_01 + n_02
-			s = (n_01, n_02, s_0, n) -> s_0
-			sqrt_fun = (n_01, n_02, s_0, n) -> ((n_1(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n))) * 
-												(n_2(n_01, n_02, s_0, n) + 
-												s(n_01, n_02, s_0, n) - 
-												min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n))))
-			lim_fun = (n_01, n_02) -> (abs(n_01 - n_02) * 
-									   Int(floor(heaviside(n_01 - n_02))))
-		end
-
-		result_re = Threads.Atomic{Float64}(0)
-		result_im = Threads.Atomic{Float64}(0)
-		lk = ReentrantLock()
-		Threads.@threads for ijk in CartesianIndices((num, num, num))
-			i, j, k = Tuple(ijk)[1], Tuple(ijk)[2], Tuple(ijk)[3]
-			n_01 = i - 1
-			n_02 = j - 1
-			if op == "a^dag_k"
-				if n_01 > n_02
-					s_0 = k - 1
-				else
-					s_0 = k
-				end
-			elseif op == "a^dag_-k"
-				if n_02 > n_01
-					s_0 = k - 1
-				else
-					s_0 = k
-				end
-			else
-				s_0 = k - 1
-			end
-				
-			for n = lim_fun(n_01, n_02):lim_fun(n_01, n_02) + num
-				result_01 = (conj(alpha)^n_01*conj(beta)^n_02*alpha^n_1(n_01, n_02, s_0, n)*beta^n_2(n_01, n_02, s_0, n)) 
-				
-				result_02 = convert(ComplexF64, (
-				(1/sqrt(Factorial_1(n_01)*Factorial_1(n_02)*
-						Factorial_1(n_1(n_01, n_02, s_0, n))*
-						Factorial_1(n_2(n_01, n_02, s_0, n)))) * 
-				conj(c_l_hyper(n_01,n_02,s_0-min(n_01, n_02), r))*
-				c_l_hyper(n_1(n_01, n_02, s_0, n), n_2(n_01, n_02, s_0, n), 
-						  s(n_01, n_02, s_0, n)-min(n_1(n_01, n_02, s_0, n),
-												    n_2(n_01, n_02, s_0, n)), r)
-				)) * sqrt_fun(n_01, n_02, s_0, n)
-
-				result = result_01 * result_02
-				
-				lock(lk) do
-					Threads.atomic_add!(result_re, convert(Float64, real(result)))
-					Threads.atomic_add!(result_im, convert(Float64, imag(result)))
-				end
-			end
-		end
-		exp(-abs(alpha)^2 - abs(beta)^2) * (result_re[] + im*result_im[])
+	for i in eachindex(idx)
+		z = data_dict_prob["p_ab"][:, :, idx[i]]
+		print(data_dict_prob["r"][idx[i]])
+		push!(f, heatmap(xs, ys, z, aspect_ratio = :equal, 
+			xlabel = L"N_{k}",
+			ylabel = L"N_{-k}",
+			framestyle=:box,
+			colorbar=:right,
+			colorbar_formatter=:scientific,
+			title=(i == 2) ? L"P(N_k, N_{-k})" : "",
+			titlefontsize=20,
+			fontfamily="serif",
+			guidefontsize=18,
+			tickfontsize=12,
+			colorbar_tickfontsize=12,
+			dpi=300,
+			#rightmargin=20Plots.mm,
+  			#leftmargin=10Plots.mm,
+		))
+		annotate!([
+		#(xs[35], ys[107],
+		#(xs[6], ys[26],
+		(xs[4], ys[17],
+		Plots.text(L"r = "*string(round(data_dict_prob["r"][idx[i]], digits=2)), 
+			14, :white, :center))])
 	end
+
+	fig = Plots.plot(f[3], f[2], f[1],
+		layout = (1, 3),
+		size = (1600, 450),
+		topmargin=5Plots.mm,
+		#bottom_margin=5.0*Plots.mm,
+	)
+
+	NAME_PART = "coherent_states_photon_distribution_"
+	#Plots.savefig(fig, PATH_FIGS*NAME_PART*"alpha"*string(alpha)*".png")
+
+	fig
 end
 
-# ╔═╡ 35e78754-0c2a-48e7-8be5-74b827b59da0
-begin
-	"""
-	`e_field_average(r::Real, k::Real, t::Real, omega::Real, a_k, a_mk)`
-	
-	Compute the average value of the E field operator over the coherent states. Note that the dimentional coefficient is omitted.
+# ╔═╡ 24beaf35-ec00-492c-8725-2c6a5da7ab9c
+let
+	alpha = 10.0
+	beta = 10.0
+	num = 200
+	data_dict_prob = load_prob_data(PATH_DATA, alpha, beta, num)
 
-	"""
-	function e_field_average(r::Real, k::Real, t::Real, omega::Real, a_k, a_mk)
-		(im .* (
-			a_k .* exp(im*(k*r - omega*t)) .- conj.(a_k) .* exp(-im*(k*r - omega*t)) .+
-			a_mk.* exp(im*(-k*r -omega*t)) .- conj.(a_mk) .* exp(im*(k*r + omega*t))
+	id = [2, 16, 30]
+	n_max_1 = [13, 100, 119] .+ 1
+	n_max_2 = [0, 0, 79] .+ 1
+	step_ticks = [3, 20, 10]
+	
+	f = []
+
+	gr()
+	
+	for i in eachindex(id)
+		z = [data_dict_prob["p_ab"][n_max_1[i] - j, n_max_2[i] + j, id[i]] for j = 0:(n_max_1[i] - n_max_2[i])]
+		labl = round(data_dict_prob["r"][id[i]]; digits = 2)
+		ticks_num = [j for j=1:step_ticks[i]:(n_max_1[i] - n_max_2[i])+1]
+		ticks_let = [L"|%$(n_max_1[i] - j - 1), %$(n_max_2[i] + j - 1)\rangle" for j=0:step_ticks[i]:(n_max_1[i] - n_max_2[i])]
+		push!(f, Plots.plot(z, #aspect_ratio = :equal, 
+			seriestype=:bar,
+			lw=0,
+			xlabel = L"| N_{k}, N_{-k}\rangle",
+			ylabel = L"P(N_k, N_{-k})",
+			legend=:none,
+			xticks=(ticks_num, ticks_let),
+			xrotation = 60,
+			framestyle=:box,
+			title=L"r = %$labl",
+			titlefontsize=14,
+			#fontfamily="serif",
+			guidefontsize=12,
+			tickfontsize=12,
+			colorbar_tickfontsize=12,
+			dpi=300,
+			rightmargin=5Plots.mm,
+  			leftmargin=5Plots.mm,
 		))
 	end
 
+	fig = Plots.plot(f[3], f[2], f[1],
+		layout = (1, 3),
+		size = (1000, 350),
+		topmargin=5Plots.mm,
+		bottom_margin=20.0*Plots.mm,
+	)
 
-	"""
-	`e_field_k_average(r::Real, k::Real, t::Real, omega::Real, a_k)`
-	
-	Compute the average value of the E field operator over the coherent states. Note that the dimentional coefficient is omitted.
+	NAME_PART = "coherent_states_diag_photon_distribution_bars_"
+	#Plots.savefig(fig, PATH_FIGS*NAME_PART*"alpha"*string(alpha)*".pdf")
 
-	"""
-	function e_field_k_average(r::Real, k::Real, t::Real, omega::Real, a_k)
-		(im .* (
-			a_k .* exp(im*(k*r - omega*t)) .- conj.(a_k) .* exp(-im*(k*r - omega*t)) ))
-	end
-	
+	fig
 end
 
-# ╔═╡ 0ca4a404-d62e-47f7-b471-ec4685dba741
-begin
-	"""
-	`g2_function(alpha::Number, beta::Number, r::Real, num::Int, 
-						 mode::String; num_1 = num)`
-	
-	Compute the g^{(2)}(0) function for 
-	- `a_k` operators (`mode = "k"`)
-	- `a_-k` operators (`mode = "-k"`)
-	- `a_k` and a_-k operators (`mode = "k,-k"`)
-
-	"""
-	function g2_function(alpha::Number, beta::Number, r::Real, num::Int, 
-						 mode::String; num_1 = num)
-		if mode == "k"
-			numerator_g2 = op_average(alpha, beta, r, num, "adk_adk_ak_ak")
-			denominator_g2 = op_average(alpha, beta, r, num_1, "n_k")
-			return numerator_g2 / denominator_g2^2
-		elseif mode == "-k"
-			numerator_g2 = op_average(alpha, beta, r, num, "ad-k_ad-k_a-k_a-k")
-			denominator_g2 = op_average(alpha, beta, r, num_1, "n_-k")
-			return numerator_g2 / denominator_g2^2
-		elseif mode == "k,-k"
-			numerator_g2 = op_average(alpha, beta, r, num, "ad-k_adk_ak_a-k")
-			denominator_g2_1 = op_average(alpha, beta, r, num_1, "n_-k")
-			denominator_g2_2 = op_average(alpha, beta, r, num_1, "n_k")
-			return numerator_g2 / denominator_g2_1 / denominator_g2_2
-		end
-	end
-end
-
-# ╔═╡ dc7470b6-f4e5-43e6-96bc-c770700679f5
-op_average(1, 3, 0.99, 20, "n_k")
-
-# ╔═╡ 8995bcbd-2f9f-4226-bc0b-47388f343976
-op_average(1, 3, 0.99, 20, "adk_adk_ak_ak")
-
-# ╔═╡ 5211b793-b5e5-453b-a907-a6e3e873c783
-g2_function(2, 2, 0.4, 20, "k")
-
-# ╔═╡ 7e7a72e4-b78a-462f-be27-8fc1008e3ce9
-md"""
-### Convergence results
-
-####  Averages
-
-**$\alpha = 2+i, \beta = 2+i$**
-- For $r>0.3$, $num = 20$ is enough
-- For $r=0.1$, $num = 100$ is enough, but $num = 60$ is okaish
-
-#### g2
-
-$\alpha = 1, \beta = 2$
-- For $r = 0.1$, $num >= 40$, $num= 50$ is a good approximation
-"""
-
-# ╔═╡ 9cbce53c-359b-4a19-976f-be51f295edca
-md"""
-## Computing average values for different $r$ and $\varphi$ values
-"""
-
-# ╔═╡ 576b4416-db0d-468a-92c0-2ecf4d85bcd7
-begin
-	# g2 function for different ϕ and r
-	r_list_1 = range(0.1, 0.999, 10)
-	phi_list = range(0, pi, 3)
-	g2_k = zeros(Float64, length(phi_list), length(r_list_1))
-	g2_mk = zeros(Float64, length(phi_list), length(r_list_1))
-	g2_cross = zeros(Float64, length(phi_list), length(r_list_1))
-	for i in eachindex(phi_list), j in eachindex(r_list_1)
-		ϕ = phi_list[i]
-		r = r_list_1[j]
-		if r >= 0.4
-			num = 20
-		elseif r >= 0.3 && r < 0.4
-			num = 30
-		else
-			num = 50
-		end
-		alpha = 2.0
-		beta = abs((r - 1) / (r + 1)) * exp(im*ϕ) * alpha
-		g2_k[i, j] = real(g2_function(alpha, beta, r, num, "k"))
-		g2_mk[i, j] = real(g2_function(alpha, beta, r, num, "-k"))
-		g2_cross[i, j] = real(g2_function(alpha, beta, r, num, "k,-k"))
-	end
-end
-
-# ╔═╡ b157f590-174e-461f-8596-525e850c7fc0
-@bind x_slider PlutoUI.Slider(range(0, 20, 200), default=0)
-
-# ╔═╡ 19727f0a-0ad1-4a59-b36d-b2f464193e94
-@bind t_slider PlutoUI.Slider(range(0, 10, 400), default=0)
-
-# ╔═╡ 8e209e6c-d14c-4a58-b913-122068739478
-@bind r_i_slider PlutoUI.Slider(1:10, default=10)
-
-# ╔═╡ 427a0203-669c-4746-ba7d-f9b0bb198a71
+# ╔═╡ 1437da67-1f8a-4792-9958-ba1fa4b24bbd
 let
-	x_list = range(0, 5, 200)
-	t_list = range(0, 10, 400)
-	k = 2*pi
-	omega = 2*pi
-	r_i_slider = 5
-	alpha = 0.5
-	beta = alpha*(1-r_list_1[r_i_slider])/(1+r_list_1[r_i_slider])
+	ticks_num = [j for j=1:3]
+	ticks_let = [L"|%$(2 - j), %$(0 + j)\rangle" for j=0:2]
+	fig = Plots.plot([0.5, 0, 0.5], 
+			seriestype=:bar,
+			lw=0,
+			xlabel = L"| n, m\rangle",
+			ylabel = L"P(n, m)",
+			legend=:none,
+			xticks=(ticks_num, ticks_let),
+			xrotation = 60,
+			framestyle=:box,
+			title=L"\mathrm{HOM}",
+			titlefontsize=14,
+			#fontfamily="serif",
+			guidefontsize=12,
+			tickfontsize=12,
+			colorbar_tickfontsize=12,
+			dpi=300,
+			rightmargin=5Plots.mm,
+  			leftmargin=5Plots.mm,
+		)
+	#Plots.savefig(fig, PATH_FIGS*"hom_distribution.pdf")
+end
+
+# ╔═╡ e0f7b600-7141-47e5-b58a-7f1eae93fb76
+let
+	alpha = 5.0
+	beta = 5.0
+	num = 100
+	data_dict_prob = load_prob_data(PATH_DATA, alpha, beta, num)
 	
-	anim = @animate for t ∈ t_list
+	xs = [string(i) for i in data_dict_prob["n_1"]]
+	ys = [string(i) for i in data_dict_prob["n_2"]]
+	z = data_dict_prob["p_ab"][:, :, idx]
+
+	heatmap(xs, ys, z, aspect_ratio = 1, 
+		xlabel = L"N_1",
+		ylabel = L"N_2",
+	)
+end
+
+# ╔═╡ 1b2cc453-3449-4e39-b91d-b126d50a36de
+let
+	alpha = 3.0
+	beta = 3.0
+	num = 100
+	data_dict_prob = load_prob_data(PATH_DATA, alpha, beta, num)
 	
-		plot(
+	xs = [string(i) for i in data_dict_prob["n_1"]]
+	ys = [string(i) for i in data_dict_prob["n_2"]]
+	z = data_dict_prob["p_ab"][:, :, idx]
+
+	heatmap(xs, ys, z, aspect_ratio = 1, 
+		xlabel = L"N_1",
+		ylabel = L"N_2",
+	)
+end
+
+# ╔═╡ 371d4a0b-70ba-4366-9e0c-2642501f97c9
+let
+	data_dict_prob_1 = load_prob_data(PATH_DATA, 3.0, 3.0, 100)
 	
-			# before switching	
-			plot(x_list, 
-				[
-					[real(e_field_average(i, k, t, omega, alpha, beta*exp(im*phi_list[1]))) for i in x_list], 
-					[real(e_field_k_average(i, k, t, omega, alpha)) for i in x_list],
-					[real(e_field_k_average(i, -k, t, omega, beta*exp(im*phi_list[1]))) for i in x_list],
-				],
-				ylims=(-20,20), 
-				label=["full" "k" "-k"], 
-				title=L"\Delta \varphi = 0",
-				color = [:red :black :black], 
-				line = ([2 1 1], [:solid :dash :dot]),
-			),
+	xs_1 = [string(i) for i in data_dict_prob_1["n_1"]]
+	ys_1 = [string(i) for i in data_dict_prob_1["n_2"]]
+	z_1 = data_dict_prob_1["p_ab"][:, :, idx]
+	NMAX_1 = data_dict_prob_1["n_1"][end]
+	r_list_1 = data_dict_prob_1["r"]
+
+	data_dict_prob_2 = load_prob_data(PATH_DATA, 5.0, 5.0, 100)
 	
-			plot(x_list, 
-				[
-					[real(e_field_average(i, k, t, omega, alpha, beta*exp(im*phi_list[2]))) for i in x_list], 
-					[real(e_field_k_average(i, k, t, omega, alpha)) for i in x_list],
-					[real(e_field_k_average(i, -k, t, omega, beta*exp(im*phi_list[2]))) for i in x_list],
-				],
-				ylims=(-20,20), 
-				label=["full" "k" "-k"], 
-				title=L"\Delta \varphi= \pi /2",
-				color = [:red :black :black], 
-				line = ([2 1 1], [:solid :dash :dot]),
-			),
+	xs_2 = [string(i) for i in data_dict_prob_2["n_1"]]
+	ys_2 = [string(i) for i in data_dict_prob_2["n_2"]]
+	z_2 = data_dict_prob_2["p_ab"][:, :, idx]
+	NMAX_2 = data_dict_prob_2["n_1"][end]
+	r_list_2 = data_dict_prob_2["r"]
+
+	data_dict_prob_3 = load_prob_data(PATH_DATA, 10.0, 10.0, 200)
 	
-			plot(x_list, 
-				[
-					[real(e_field_average(i, k, t, omega, alpha, beta*exp(im*phi_list[3]))) for i in x_list], 
-					[real(e_field_k_average(i, k, t, omega, alpha)) for i in x_list],
-					[real(e_field_k_average(i, -k, t, omega, beta*exp(im*phi_list[3]))) for i in x_list],
-				],
-				ylims=(-20,20), 
-				label=["full" "k" "-k"], 
-				title=L"\Delta \varphi= \pi",
-				color = [:red :black :black], 
-				line = ([2 1 1], [:solid :dash :dot]),
-			),
+	xs_3 = [string(i) for i in data_dict_prob_3["n_1"]]
+	ys_3 = [string(i) for i in data_dict_prob_3["n_2"]]
+	z_3 = data_dict_prob_3["p_ab"][:, :, idx]
+	NMAX_3 = data_dict_prob_3["n_1"][end]
+	r_list_3 = data_dict_prob_1["r"]
+
+	Plots.plot(
+		Plots.heatmap(xs_1, ys_1, z_1, aspect_ratio = 1, 
+			xlabel = L"N_1",
+			ylabel = L"N_2",
+			#annotations = (xs_1[2], ys_1[16], Plots.text(L"r = "*string(round(r_list_1[idx], digits=3)), 10, :white, :center)),
+		),
+		Plots.heatmap(xs_2, ys_2, z_2, aspect_ratio = 1, 
+			xlabel = L"N_1",
+			ylabel = L"N_2",
+			#annotations = (xs_2[2], ys_2[16], Plots.text(L"r = "*string(round(r_list_2[idx], digits=3)), 10, :white, :center)),
+		),
+		Plots.heatmap(xs_3, ys_3, z_3, aspect_ratio = 1, 
+			xlabel = L"N_1",
+			ylabel = L"N_2",
+			#annotations = (xs_3[2], ys_3[16], Plots.text(L"r = "*string(round(r_list_3[idx], digits=3)), 10, :white, :center)),
+		),
+		layout = (1, 3),
+		size=(1800,700)
+	)
+end
+
+# ╔═╡ 96a14901-fd0b-4c98-be34-a2a6c16e69f7
+# ╠═╡ disabled = true
+#=╠═╡
+let
+	anim = @animate for idx_0 ∈ 30:-1:1
+	    data_dict_prob_1 = load_prob_data(PATH_DATA, 3.0, 3.0, 100)
 	
-			
-			# after switching
-			plot(x_list, 
-				[
-					[real(e_field_average(i, k, t, omega/r_list_1[r_i_slider], a_k_av[1, r_i_slider], a_mk_av[1, r_i_slider])) for i in x_list],
-					[real(e_field_k_average(i, k, t, omega/r_list_1[r_i_slider], a_k_av[1, r_i_slider])) for i in x_list],
-					[real(e_field_k_average(i, -k, t, omega/r_list_1[r_i_slider], a_mk_av[1, r_i_slider])) for i in x_list]
-				],
-				ylims=(-20,20), 
-				label=["full" "k" "-k"], 
-				#title="after switching",
-				color = [:red :black :black], 
-				line = ([2 1 1], [:solid :dash :dot]),
+		xs_1 = [string(i) for i in data_dict_prob_1["n_1"]]
+		ys_1 = [string(i) for i in data_dict_prob_1["n_2"]]
+		z_1 = data_dict_prob_1["p_ab"][:, :, idx_0]
+		NMAX_1 = data_dict_prob_1["n_1"][end]
+		r_list_1 = data_dict_prob_1["r"]
+	
+		data_dict_prob_2 = load_prob_data(PATH_DATA, 5.0, 5.0, 100)
+		
+		xs_2 = [string(i) for i in data_dict_prob_2["n_1"]]
+		ys_2 = [string(i) for i in data_dict_prob_2["n_2"]]
+		z_2 = data_dict_prob_2["p_ab"][:, :, idx_0]
+		NMAX_2 = data_dict_prob_2["n_1"][end]
+		r_list_2 = data_dict_prob_2["r"]
+	
+		data_dict_prob_3 = load_prob_data(PATH_DATA, 10.0, 10.0, 200)
+		
+		xs_3 = [string(i) for i in data_dict_prob_3["n_1"]]
+		ys_3 = [string(i) for i in data_dict_prob_3["n_2"]]
+		z_3 = data_dict_prob_3["p_ab"][:, :, idx_0]
+		NMAX_3 = data_dict_prob_3["n_1"][end]
+		r_list_3 = data_dict_prob_1["r"]
+	
+		Plots.plot(
+			heatmap(xs_1, ys_1, z_1, aspect_ratio = 1, 
+				xlabel = L"N_k",
+				ylabel = L"N_{-k}",
+				#annotations = (xs_1[2], ys_1[16], Plots.text(L"r = "*string(round(r_list_1[idx_0], digits=3)), 10, :white, :center)),
 			),
-			plot(x_list, 
-				[
-					[real(e_field_average(i, k, t, omega/r_list_1[r_i_slider], a_k_av[2, r_i_slider], a_mk_av[2, r_i_slider])) for i in x_list],
-					[real(e_field_k_average(i, k, t, omega/r_list_1[r_i_slider], a_k_av[2, r_i_slider])) for i in x_list],
-					[real(e_field_k_average(i, -k, t, omega/r_list_1[r_i_slider], a_mk_av[2, r_i_slider])) for i in x_list]
-				],
-				ylims=(-20,20), 
-				label=["full" "k" "-k"], 
-				title="after switching",
-				color = [:red :black :black], 
-				line = ([2 1 1], [:solid :dash :dot]),
+			heatmap(xs_2, ys_2, z_2, aspect_ratio = 1, 
+				xlabel = L"N_{k}",
+				ylabel = L"N_{-k}",
+				#annotations = (xs_2[2], ys_2[16], Plots.text(L"r = "*string(round(r_list_2[idx_0], digits=3)), 10, :white, :center)),
 			),
-			plot(x_list, 
-				[
-					[real(e_field_average(i, k, t, omega/r_list_1[r_i_slider], a_k_av[3, r_i_slider], a_mk_av[3, r_i_slider])) for i in x_list],
-					[real(e_field_k_average(i, k, t, omega/r_list_1[r_i_slider], a_k_av[3, r_i_slider])) for i in x_list],
-					[real(e_field_k_average(i, -k, t, omega/r_list_1[r_i_slider], a_mk_av[3, r_i_slider])) for i in x_list]
-				],
-				ylims=(-20,20), 
-				label=["full" "k" "-k"], 
-				#title="after switching",
-				color = [:red :black :black], 
-				line = ([2 1 1], [:solid :dash :dot]),
+			heatmap(xs_3, ys_3, z_3, aspect_ratio = 1, 
+				xlabel = L"N_{k}",
+				ylabel = L"N_{-k}",
+				#annotations = (xs_3[2], ys_3[16], Plots.text(L"r = "*string(round(r_list_3[idx_0], digits=3)), 10, :white, :center)),
 			),
-			leg = :topright,
-			size = (800, 600),
+			layout = (1, 3),
+			title=[L"\alpha=3,\beta=3" L"\alpha=5,\beta=5\;\;r = "*string(round(r_list_2[idx_0], digits=3)) L"\alpha=10,\beta=10"],
+			size=(1800,600)
 		)
 	end
-	gif(anim, PATH_FIGS*"e_field_coh_states_anim_fps10_r"*string(round(r_list_1[r_i_slider], digits=2))*"_alpha"*string(round(alpha, digits=2))*"_beta"*string(round(beta, digits=2))*"_erasing_grid.gif", fps = 10)
+	gif(anim, PATH_FIGS*"coh_states_anim_fps10.gif", fps = 10)
 end
+  ╠═╡ =#
+
+# ╔═╡ 4a9b639c-e6f7-4cd5-8a2e-8681cebaf4a2
+md"""
+## Computing
+"""
+
+# ╔═╡ c2798ef3-27f4-4870-9c44-5165e46e73a6
+# ╠═╡ disabled = true
+#=╠═╡
+Threads.@threads for iijjkk = CartesianIndices((NMAX, NMAX, NMAX_r))
+	ii, jj, kk = Tuple(iijjkk)[1], Tuple(iijjkk)[2], Tuple(iijjkk)[3]
+	n_1 = ii - 1
+	n_2 = jj - 1
+	r = r_list[kk]
+	result = p_ab(alpha,beta , n_1, n_2, r, num)
+	lk = ReentrantLock()
+	begin
+	   lock(lk)
+	   try
+		   prob_ab_NMAX[ii, jj, kk] = result
+	   finally
+		   unlock(lk)
+	   end
+    end
+end
+  ╠═╡ =#
 
 # ╔═╡ 8bb3ba1a-2614-4a00-b6a7-be35b43ab061
 md"""
 ## Writing data
 """
 
-# ╔═╡ f9372f07-c690-47c8-b3d6-98fc99ce9ba6
-hypergeometric_2f1(CC(1), CC(1), CC(7+1), CC(8); flags=1)
-
-# ╔═╡ 60bac1af-6546-4a66-b143-e88b034cd5b6
-p_ab(25.0+im*0, 25.0+im*0, 254, 254, 0.1, 550)
-
-# ╔═╡ b3d71f34-ed92-4720-91ea-a6aa71a2d16e
-min(10,12)
-
-# ╔═╡ c2bd944d-7abd-4eb1-a4ec-92021689d4cd
-BigCombinatorics.cache_report()
+# ╔═╡ 86bf6b96-4e5f-4170-801b-eb8f10e80a7e
+# ╠═╡ disabled = true
+#=╠═╡
+begin
+	# fig_1.savefig(PATH_FIGS*"obj4D_lattice_4x4_mf_nit10.png", dpi=300)
+	
+	data_dict_prob_ab = Dict("r" => collect(r_list), "n_1" => collect(0:NMAX-1), 
+	                     "n_2" => collect(0:NMAX-1), "alpha" => real(alpha), 
+						 "beta" => real(beta), "num_sum" => num,
+						 "p_ab" => prob_ab_NMAX)
+	
+	NAME_PART = "alpha"*string(real(alpha))*"_beta"*string(real(beta))*"_numsum"*string(num)*".h5"
+	save(PATH_DATA*"coh_photon_distrib_"*NAME_PART, data_dict_prob_ab)
+	
+	data_dict_loaded = load(PATH_DATA*"coh_photon_distrib_"*NAME_PART)
+	data_dict_loaded["p_ab"] == data_dict_prob_ab["p_ab"]
+end
+  ╠═╡ =#
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
 PLUTO_PROJECT_TOML_CONTENTS = """
@@ -812,16 +564,18 @@ Nemo = "2edaba10-b0f1-5616-af89-8c11ac63239a"
 Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
 PlutoUI = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+PyPlot = "d330b81b-6aea-500a-939a-2ce795aea3ee"
 
 [compat]
 BenchmarkTools = "~1.3.2"
 BigCombinatorics = "~0.3.5"
-FileIO = "~1.16.0"
-HDF5 = "~0.16.14"
+FileIO = "~1.16.1"
+HDF5 = "~0.16.15"
 LaTeXStrings = "~1.3.0"
-Nemo = "~0.33.1"
-Plots = "~1.38.7"
-PlutoUI = "~0.7.50"
+Nemo = "~0.34.6"
+Plots = "~1.38.16"
+PlutoUI = "~0.7.51"
+PyPlot = "~2.11.1"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -830,13 +584,13 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.8.5"
 manifest_format = "2.0"
-project_hash = "a35e7e2f8fce9bf25e6223c22ad2fab186f119e7"
+project_hash = "f11c7e00af8c888bcc9dffa53c9b2186696a0adb"
 
 [[deps.AbstractAlgebra]]
-deps = ["GroupsCore", "InteractiveUtils", "LinearAlgebra", "MacroTools", "Markdown", "Random", "RandomExtensions", "SparseArrays", "Test"]
-git-tree-sha1 = "9e17465a4d430e430a946452befef7fd7bf2745a"
+deps = ["GroupsCore", "InteractiveUtils", "LinearAlgebra", "MacroTools", "Preferences", "Random", "RandomExtensions", "SparseArrays", "Test"]
+git-tree-sha1 = "1bd8a536c949eb3de9b58042d57790ded6b70fa6"
 uuid = "c3fe647b-3220-5bb0-a1ea-a7954cac585d"
-version = "0.28.2"
+version = "0.30.9"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -902,15 +656,15 @@ version = "0.401.100+0"
 
 [[deps.ChainRulesCore]]
 deps = ["Compat", "LinearAlgebra", "SparseArrays"]
-git-tree-sha1 = "c6d890a52d2c4d55d326439580c3b8d0875a77d9"
+git-tree-sha1 = "e30f2f4e20f7f186dc36529910beaedc60cfa644"
 uuid = "d360d2e6-b24c-11e9-a2a3-2a2ae2dbcce4"
-version = "1.15.7"
+version = "1.16.0"
 
 [[deps.ChangesOfVariables]]
-deps = ["ChainRulesCore", "LinearAlgebra", "Test"]
-git-tree-sha1 = "485193efd2176b88e6622a39a246f8c5b600e74e"
+deps = ["LinearAlgebra", "Test"]
+git-tree-sha1 = "f84967c4497e0e1955f9a582c232b02847c5f589"
 uuid = "9e997f8a-9a97-42d5-a9f1-ce6bfc15e2c0"
-version = "0.1.6"
+version = "0.1.7"
 
 [[deps.CodecZlib]]
 deps = ["TranscodingStreams", "Zlib_jll"]
@@ -919,10 +673,10 @@ uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
 version = "0.7.1"
 
 [[deps.ColorSchemes]]
-deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "Random", "SnoopPrecompile"]
-git-tree-sha1 = "aa3edc8f8dea6cbfa176ee12f7c2fc82f0608ed3"
+deps = ["ColorTypes", "ColorVectorSpace", "Colors", "FixedPointNumbers", "PrecompileTools", "Random"]
+git-tree-sha1 = "be6ab11021cd29f0344d5c4357b163af05a48cba"
 uuid = "35d6a980-a343-548e-a6ea-1d62b119f2f4"
-version = "3.20.0"
+version = "3.21.0"
 
 [[deps.ColorTypes]]
 deps = ["FixedPointNumbers", "Random"]
@@ -953,15 +707,33 @@ deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
 version = "1.0.1+0"
 
+[[deps.ConcurrentUtilities]]
+deps = ["Serialization", "Sockets"]
+git-tree-sha1 = "96d823b94ba8d187a6d8f0826e731195a74b90e9"
+uuid = "f0e56b4a-5159-44fe-b623-3e5288b988bb"
+version = "2.2.0"
+
+[[deps.Conda]]
+deps = ["Downloads", "JSON", "VersionParsing"]
+git-tree-sha1 = "915ebe6f0e7302693bdd8eac985797dba1d25662"
+uuid = "8f4d0f93-b110-5947-807f-2305c1781a2d"
+version = "1.9.0"
+
+[[deps.ConstructionBase]]
+deps = ["LinearAlgebra"]
+git-tree-sha1 = "738fec4d684a9a6ee9598a8bfee305b26831f28c"
+uuid = "187b0558-2788-49d3-abe0-74a17ed4e7c9"
+version = "1.5.2"
+
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
 uuid = "d38c429a-6771-53c6-b99e-75d170b6e991"
 version = "0.6.2"
 
 [[deps.DataAPI]]
-git-tree-sha1 = "e8119c1a33d267e16108be441a287a6981ba1630"
+git-tree-sha1 = "8da84edb865b0b5b0100c0666a9bc9a0b71c553c"
 uuid = "9a962f9c-6df0-11e9-0e5d-c546b8b5ee8a"
-version = "1.14.0"
+version = "1.15.0"
 
 [[deps.DataStructures]]
 deps = ["Compat", "InteractiveUtils", "OrderedCollections"]
@@ -1007,16 +779,16 @@ uuid = "b22a6f82-2f65-5046-a5b2-351ab43fb4e5"
 version = "4.4.2+2"
 
 [[deps.FLINT_jll]]
-deps = ["Artifacts", "GMP_jll", "JLLWrappers", "Libdl", "MPFR_jll", "OpenBLAS32_jll", "Pkg"]
-git-tree-sha1 = "e246fc2836ce2ee27f34f2760f33db603af77fda"
+deps = ["Artifacts", "GMP_jll", "JLLWrappers", "Libdl", "MPFR_jll", "OpenBLAS32_jll"]
+git-tree-sha1 = "e6a6ac4c7208827d2c0f9b75aa96cbb10e604d11"
 uuid = "e134572f-a0d5-539d-bddf-3cad8db41a82"
-version = "200.900.4+0"
+version = "200.900.6+0"
 
 [[deps.FileIO]]
 deps = ["Pkg", "Requires", "UUIDs"]
-git-tree-sha1 = "7be5f99f7d15578798f338f5433b6c432ea8037b"
+git-tree-sha1 = "299dc33549f68299137e51e6d49a13b5b1da9673"
 uuid = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
-version = "1.16.0"
+version = "1.16.1"
 
 [[deps.FileWatching]]
 uuid = "7b1f6079-737a-58dc-b8bc-7a2ca5c1b5ee"
@@ -1064,15 +836,15 @@ version = "6.2.1+2"
 
 [[deps.GR]]
 deps = ["Artifacts", "Base64", "DelimitedFiles", "Downloads", "GR_jll", "HTTP", "JSON", "Libdl", "LinearAlgebra", "Pkg", "Preferences", "Printf", "Random", "Serialization", "Sockets", "TOML", "Tar", "Test", "UUIDs", "p7zip_jll"]
-git-tree-sha1 = "660b2ea2ec2b010bb02823c6d0ff6afd9bdc5c16"
+git-tree-sha1 = "8b8a2fd4536ece6e554168c21860b6820a8a83db"
 uuid = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
-version = "0.71.7"
+version = "0.72.7"
 
 [[deps.GR_jll]]
 deps = ["Artifacts", "Bzip2_jll", "Cairo_jll", "FFMPEG_jll", "Fontconfig_jll", "GLFW_jll", "JLLWrappers", "JpegTurbo_jll", "Libdl", "Libtiff_jll", "Pixman_jll", "Qt5Base_jll", "Zlib_jll", "libpng_jll"]
-git-tree-sha1 = "d5e1fd17ac7f3aa4c5287a61ee28d4f8b8e98873"
+git-tree-sha1 = "19fad9cd9ae44847fe842558a744748084a722d1"
 uuid = "d2c73de3-f751-5644-a686-071e5b155ba9"
-version = "0.71.7+0"
+version = "0.72.7+0"
 
 [[deps.Gettext_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Libiconv_jll", "Pkg", "XML2_jll"]
@@ -1105,9 +877,9 @@ version = "0.4.0"
 
 [[deps.HDF5]]
 deps = ["Compat", "HDF5_jll", "Libdl", "Mmap", "Random", "Requires", "UUIDs"]
-git-tree-sha1 = "3dab31542b3da9f25a6a1d11159d4af8fdce7d67"
+git-tree-sha1 = "c73fdc3d9da7700691848b78c61841274076932a"
 uuid = "f67ccb44-e63f-5c2f-98bd-6dc0ccc4ba2f"
-version = "0.16.14"
+version = "0.16.15"
 
 [[deps.HDF5_jll]]
 deps = ["Artifacts", "JLLWrappers", "LibCURL_jll", "Libdl", "OpenSSL_jll", "Pkg", "Zlib_jll"]
@@ -1116,10 +888,10 @@ uuid = "0234f1f7-429e-5d53-9886-15a909be8d59"
 version = "1.12.2+2"
 
 [[deps.HTTP]]
-deps = ["Base64", "CodecZlib", "Dates", "IniFile", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
-git-tree-sha1 = "37e4657cd56b11abe3d10cd4a1ec5fbdb4180263"
+deps = ["Base64", "CodecZlib", "ConcurrentUtilities", "Dates", "Logging", "LoggingExtras", "MbedTLS", "NetworkOptions", "OpenSSL", "Random", "SimpleBufferStream", "Sockets", "URIs", "UUIDs"]
+git-tree-sha1 = "5e77dbf117412d4f164a464d610ee6050cc75272"
 uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
-version = "1.7.4"
+version = "1.9.6"
 
 [[deps.HarfBuzz_jll]]
 deps = ["Artifacts", "Cairo_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "Graphite2_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg"]
@@ -1141,14 +913,9 @@ version = "0.9.4"
 
 [[deps.IOCapture]]
 deps = ["Logging", "Random"]
-git-tree-sha1 = "f7be53659ab06ddc986428d3a9dcc95f6fa6705a"
+git-tree-sha1 = "d75853a0bdbfb1ac815478bacd89cd27b550ace6"
 uuid = "b5f81e59-6552-4d32-b1f0-c071b021bf89"
-version = "0.2.2"
-
-[[deps.IniFile]]
-git-tree-sha1 = "f550e6e32074c939295eb5ea6de31849ac2c9625"
-uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
-version = "0.5.1"
+version = "0.2.3"
 
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
@@ -1156,9 +923,9 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[deps.InverseFunctions]]
 deps = ["Test"]
-git-tree-sha1 = "49510dfcb407e572524ba94aeae2fced1f3feb0f"
+git-tree-sha1 = "6667aadd1cdee2c6cd068128b3d226ebc4fb0c67"
 uuid = "3587e190-3f89-42d0-90ee-14403ec27112"
-version = "0.1.8"
+version = "0.1.9"
 
 [[deps.IrrationalConstants]]
 git-tree-sha1 = "630b497eafcc20001bba38a4651b327dcfc491d2"
@@ -1179,9 +946,9 @@ version = "1.4.1"
 
 [[deps.JSON]]
 deps = ["Dates", "Mmap", "Parsers", "Unicode"]
-git-tree-sha1 = "3c837543ddb02250ef42f4738347454f95079d4e"
+git-tree-sha1 = "31e996f0a15c7b280ba9f76636b3ff9e2ae58c9a"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
-version = "0.21.3"
+version = "0.21.4"
 
 [[deps.JpegTurbo_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
@@ -1201,6 +968,12 @@ git-tree-sha1 = "bf36f528eec6634efc60d7ec062008f171071434"
 uuid = "88015f11-f218-50d7-93a8-a6af411a945d"
 version = "3.0.0+1"
 
+[[deps.LLVMOpenMP_jll]]
+deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
+git-tree-sha1 = "f689897ccbe049adb19a065c495e75f372ecd42b"
+uuid = "1d63c593-3942-5779-bab2-d838dc0a180e"
+version = "15.0.4+0"
+
 [[deps.LZO_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
 git-tree-sha1 = "e5b909bcf985c5e2605737d2ce278ed791b89be6"
@@ -1214,9 +987,9 @@ version = "1.3.0"
 
 [[deps.Latexify]]
 deps = ["Formatting", "InteractiveUtils", "LaTeXStrings", "MacroTools", "Markdown", "OrderedCollections", "Printf", "Requires"]
-git-tree-sha1 = "2422f47b34d4b127720a18f86fa7b1aa2e141f29"
+git-tree-sha1 = "f428ae552340899a935973270b8d98e5a31c49fe"
 uuid = "23fbe1c1-3f47-55db-b15f-69d7ec21a316"
-version = "0.15.18"
+version = "0.16.1"
 
 [[deps.LibCURL]]
 deps = ["LibCURL_jll", "MozillaCACerts_jll"]
@@ -1294,9 +1067,9 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 
 [[deps.LogExpFunctions]]
 deps = ["ChainRulesCore", "ChangesOfVariables", "DocStringExtensions", "InverseFunctions", "IrrationalConstants", "LinearAlgebra"]
-git-tree-sha1 = "0a1b7c2863e44523180fdb3146534e265a91870b"
+git-tree-sha1 = "c3ce8e7420b3a6e071e0fe4745f5d4300e37b13f"
 uuid = "2ab3a3ac-af41-5b50-aa03-7779005ae688"
-version = "0.3.23"
+version = "0.3.24"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
@@ -1363,10 +1136,10 @@ uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.0.2"
 
 [[deps.Nemo]]
-deps = ["AbstractAlgebra", "Antic_jll", "Arb_jll", "Calcium_jll", "FLINT_jll", "InteractiveUtils", "Libdl", "LinearAlgebra", "Markdown", "Pkg", "Random", "RandomExtensions", "SHA", "Test"]
-git-tree-sha1 = "f5ddc05af34be2ff567d0cefe2f6bda0119287e4"
+deps = ["AbstractAlgebra", "Antic_jll", "Arb_jll", "Calcium_jll", "FLINT_jll", "Libdl", "LinearAlgebra", "Pkg", "Random", "RandomExtensions", "SHA"]
+git-tree-sha1 = "66d0501f2e442528ca7a845477356e408b3e8199"
 uuid = "2edaba10-b0f1-5616-af89-8c11ac63239a"
-version = "0.33.1"
+version = "0.34.6"
 
 [[deps.NetworkOptions]]
 uuid = "ca575930-c2e3-43a9-ace4-1e988b2c1908"
@@ -1396,15 +1169,15 @@ version = "0.8.1+0"
 
 [[deps.OpenSSL]]
 deps = ["BitFlags", "Dates", "MozillaCACerts_jll", "OpenSSL_jll", "Sockets"]
-git-tree-sha1 = "6503b77492fd7fcb9379bf73cd31035670e3c509"
+git-tree-sha1 = "51901a49222b09e3743c65b8847687ae5fc78eb2"
 uuid = "4d8831e6-92b7-49fb-bdf8-b643e874388c"
-version = "1.3.3"
+version = "1.4.1"
 
 [[deps.OpenSSL_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "9ff31d101d987eb9d66bd8b176ac7c277beccd09"
+deps = ["Artifacts", "JLLWrappers", "Libdl"]
+git-tree-sha1 = "1aa4b74f80b01c6bc2b89992b861b5f210e665b5"
 uuid = "458c3c95-2e84-50aa-8efc-19380b2a3a95"
-version = "1.1.20+0"
+version = "1.1.21+0"
 
 [[deps.OpenSpecFun_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "Libdl", "Pkg"]
@@ -1419,9 +1192,9 @@ uuid = "91d4177d-7536-5919-b921-800302f37372"
 version = "1.3.2+0"
 
 [[deps.OrderedCollections]]
-git-tree-sha1 = "85f8e6578bf1f9ee0d11e7bb1b1456435479d47c"
+git-tree-sha1 = "d321bf2de576bf25ec4d3e4360faca399afca282"
 uuid = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
-version = "1.4.1"
+version = "1.6.0"
 
 [[deps.PCRE2_jll]]
 deps = ["Artifacts", "Libdl"]
@@ -1429,10 +1202,10 @@ uuid = "efcefdf7-47ab-520b-bdef-62a2eaa19f15"
 version = "10.40.0+0"
 
 [[deps.Parsers]]
-deps = ["Dates", "SnoopPrecompile"]
-git-tree-sha1 = "478ac6c952fddd4399e71d4779797c538d0ff2bf"
+deps = ["Dates", "PrecompileTools", "UUIDs"]
+git-tree-sha1 = "5a6ab2f64388fd1175effdf73fe5933ef1e0bac0"
 uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
-version = "2.5.8"
+version = "2.7.0"
 
 [[deps.Pipe]]
 git-tree-sha1 = "6842804e7867b115ca9de748a0cf6b364523c16d"
@@ -1440,10 +1213,10 @@ uuid = "b98c9c47-44ae-5843-9183-064241ee97a0"
 version = "1.3.0"
 
 [[deps.Pixman_jll]]
-deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
-git-tree-sha1 = "b4f5d02549a10e20780a24fce72bea96b6329e29"
+deps = ["Artifacts", "CompilerSupportLibraries_jll", "JLLWrappers", "LLVMOpenMP_jll", "Libdl"]
+git-tree-sha1 = "64779bc4c9784fee475689a1752ef4d5747c5e87"
 uuid = "30392449-352a-5448-841d-b1acce4e97dc"
-version = "0.40.1+0"
+version = "0.42.2+0"
 
 [[deps.Pkg]]
 deps = ["Artifacts", "Dates", "Downloads", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Serialization", "TOML", "Tar", "UUIDs", "p7zip_jll"]
@@ -1457,28 +1230,34 @@ uuid = "ccf2f8ad-2431-5c83-bf29-c5338b663b6a"
 version = "3.1.0"
 
 [[deps.PlotUtils]]
-deps = ["ColorSchemes", "Colors", "Dates", "Printf", "Random", "Reexport", "SnoopPrecompile", "Statistics"]
-git-tree-sha1 = "c95373e73290cf50a8a22c3375e4625ded5c5280"
+deps = ["ColorSchemes", "Colors", "Dates", "PrecompileTools", "Printf", "Random", "Reexport", "Statistics"]
+git-tree-sha1 = "f92e1315dadf8c46561fb9396e525f7200cdc227"
 uuid = "995b91a9-d308-5afd-9ec6-746e21dbc043"
-version = "1.3.4"
+version = "1.3.5"
 
 [[deps.Plots]]
-deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SnoopPrecompile", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "Unzip"]
-git-tree-sha1 = "f49a45a239e13333b8b936120fe6d793fe58a972"
+deps = ["Base64", "Contour", "Dates", "Downloads", "FFMPEG", "FixedPointNumbers", "GR", "JLFzf", "JSON", "LaTeXStrings", "Latexify", "LinearAlgebra", "Measures", "NaNMath", "Pkg", "PlotThemes", "PlotUtils", "PrecompileTools", "Preferences", "Printf", "REPL", "Random", "RecipesBase", "RecipesPipeline", "Reexport", "RelocatableFolders", "Requires", "Scratch", "Showoff", "SparseArrays", "Statistics", "StatsBase", "UUIDs", "UnicodeFun", "UnitfulLatexify", "Unzip"]
+git-tree-sha1 = "75ca67b2c6512ad2d0c767a7cfc55e75075f8bbc"
 uuid = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
-version = "1.38.8"
+version = "1.38.16"
 
 [[deps.PlutoUI]]
 deps = ["AbstractPlutoDingetjes", "Base64", "ColorTypes", "Dates", "FixedPointNumbers", "Hyperscript", "HypertextLiteral", "IOCapture", "InteractiveUtils", "JSON", "Logging", "MIMEs", "Markdown", "Random", "Reexport", "URIs", "UUIDs"]
-git-tree-sha1 = "5bb5129fdd62a2bbbe17c2756932259acf467386"
+git-tree-sha1 = "b478a748be27bd2f2c73a7690da219d0844db305"
 uuid = "7f904dfe-b85e-4ff6-b463-dae2292396a8"
-version = "0.7.50"
+version = "0.7.51"
+
+[[deps.PrecompileTools]]
+deps = ["Preferences"]
+git-tree-sha1 = "9673d39decc5feece56ef3940e5dafba15ba0f81"
+uuid = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
+version = "1.1.2"
 
 [[deps.Preferences]]
 deps = ["TOML"]
-git-tree-sha1 = "47e5f437cc0e7ef2ce8406ce1e7e24d44915f88d"
+git-tree-sha1 = "7eb1686b4f04b82f96ed7a4ea5890a4f0c7a09f1"
 uuid = "21216c6a-2e73-6563-6e65-726566657250"
-version = "1.3.0"
+version = "1.4.0"
 
 [[deps.Printf]]
 deps = ["Unicode"]
@@ -1487,6 +1266,18 @@ uuid = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 [[deps.Profile]]
 deps = ["Printf"]
 uuid = "9abbd945-dff8-562f-b5e8-e1ebf5ef1b79"
+
+[[deps.PyCall]]
+deps = ["Conda", "Dates", "Libdl", "LinearAlgebra", "MacroTools", "Serialization", "VersionParsing"]
+git-tree-sha1 = "62f417f6ad727987c755549e9cd88c46578da562"
+uuid = "438e738f-606a-5dbb-bf0a-cddfbfd45ab0"
+version = "1.95.1"
+
+[[deps.PyPlot]]
+deps = ["Colors", "LaTeXStrings", "PyCall", "Sockets", "Test", "VersionParsing"]
+git-tree-sha1 = "92e7ca803b579b8b817f004e74b205a706d9a974"
+uuid = "d330b81b-6aea-500a-939a-2ce795aea3ee"
+version = "2.11.1"
 
 [[deps.Qt5Base_jll]]
 deps = ["Artifacts", "CompilerSupportLibraries_jll", "Fontconfig_jll", "Glib_jll", "JLLWrappers", "Libdl", "Libglvnd_jll", "OpenSSL_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libxcb_jll", "Xorg_xcb_util_image_jll", "Xorg_xcb_util_keysyms_jll", "Xorg_xcb_util_renderutil_jll", "Xorg_xcb_util_wm_jll", "Zlib_jll", "xkbcommon_jll"]
@@ -1509,16 +1300,16 @@ uuid = "fb686558-2515-59ef-acaa-46db3789a887"
 version = "0.4.3"
 
 [[deps.RecipesBase]]
-deps = ["SnoopPrecompile"]
-git-tree-sha1 = "261dddd3b862bd2c940cf6ca4d1c8fe593e457c8"
+deps = ["PrecompileTools"]
+git-tree-sha1 = "5c3d09cc4f31f5fc6af001c250bf1278733100ff"
 uuid = "3cdcf5f2-1ef4-517c-9805-6587b60abb01"
-version = "1.3.3"
+version = "1.3.4"
 
 [[deps.RecipesPipeline]]
-deps = ["Dates", "NaNMath", "PlotUtils", "RecipesBase", "SnoopPrecompile"]
-git-tree-sha1 = "e974477be88cb5e3040009f3767611bc6357846f"
+deps = ["Dates", "NaNMath", "PlotUtils", "PrecompileTools", "RecipesBase"]
+git-tree-sha1 = "45cf9fd0ca5839d06ef333c8201714e888486342"
 uuid = "01d81517-befc-4cb6-b9ec-a95719d0359c"
-version = "0.6.11"
+version = "0.6.12"
 
 [[deps.Reexport]]
 git-tree-sha1 = "45e428421666073eab6f2da5c9d310d99bb12f9b"
@@ -1561,20 +1352,14 @@ git-tree-sha1 = "874e8867b33a00e784c8a7e4b60afe9e037b74e1"
 uuid = "777ac1f9-54b0-4bf8-805c-2214025038e7"
 version = "1.1.0"
 
-[[deps.SnoopPrecompile]]
-deps = ["Preferences"]
-git-tree-sha1 = "e760a70afdcd461cf01a575947738d359234665c"
-uuid = "66db9d55-30c0-4569-8b51-7e840670fc0c"
-version = "1.0.3"
-
 [[deps.Sockets]]
 uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
 
 [[deps.SortingAlgorithms]]
 deps = ["DataStructures"]
-git-tree-sha1 = "a4ada03f999bd01b3a25dcaa30b2d929fe537e00"
+git-tree-sha1 = "c60ec5c62180f27efea3ba2908480f8055e17cee"
 uuid = "a2af1166-a08f-5f64-846c-94a0d3cef48c"
-version = "1.1.0"
+version = "1.1.1"
 
 [[deps.SparseArrays]]
 deps = ["LinearAlgebra", "Random"]
@@ -1592,15 +1377,15 @@ uuid = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [[deps.StatsAPI]]
 deps = ["LinearAlgebra"]
-git-tree-sha1 = "f9af7f195fb13589dd2e2d57fdb401717d2eb1f6"
+git-tree-sha1 = "45a7769a04a3cf80da1c1c7c60caf932e6f4c9f7"
 uuid = "82ae8749-77ed-4fe6-ae5f-f523153014b0"
-version = "1.5.0"
+version = "1.6.0"
 
 [[deps.StatsBase]]
 deps = ["DataAPI", "DataStructures", "LinearAlgebra", "LogExpFunctions", "Missings", "Printf", "Random", "SortingAlgorithms", "SparseArrays", "Statistics", "StatsAPI"]
-git-tree-sha1 = "d1bf48bfcc554a3761a133fe3a9bb01488e06916"
+git-tree-sha1 = "75ebe04c5bed70b91614d684259b661c9e6274a4"
 uuid = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-version = "0.33.21"
+version = "0.34.0"
 
 [[deps.TOML]]
 deps = ["Dates"]
@@ -1624,14 +1409,14 @@ uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [[deps.TranscodingStreams]]
 deps = ["Random", "Test"]
-git-tree-sha1 = "94f38103c984f89cf77c402f2a68dbd870f8165f"
+git-tree-sha1 = "9a6ae7ed916312b41236fcef7e0af564ef934769"
 uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
-version = "0.9.11"
+version = "0.9.13"
 
 [[deps.Tricks]]
-git-tree-sha1 = "6bac775f2d42a611cdfcd1fb217ee719630c4175"
+git-tree-sha1 = "aadb748be58b492045b4f56166b5188aa63ce549"
 uuid = "410a4b4d-49e4-4fbc-ab6d-cb71b17b3775"
-version = "0.1.6"
+version = "0.1.7"
 
 [[deps.URIs]]
 git-tree-sha1 = "074f993b0ca030848b897beff716d93aca60f06a"
@@ -1651,10 +1436,27 @@ git-tree-sha1 = "53915e50200959667e78a92a418594b428dffddf"
 uuid = "1cfade01-22cf-5700-b092-accc4b62d6e1"
 version = "0.4.1"
 
+[[deps.Unitful]]
+deps = ["ConstructionBase", "Dates", "LinearAlgebra", "Random"]
+git-tree-sha1 = "ba4aa36b2d5c98d6ed1f149da916b3ba46527b2b"
+uuid = "1986cc42-f94f-5a68-af5c-568840ba703d"
+version = "1.14.0"
+
+[[deps.UnitfulLatexify]]
+deps = ["LaTeXStrings", "Latexify", "Unitful"]
+git-tree-sha1 = "e2d817cc500e960fdbafcf988ac8436ba3208bfd"
+uuid = "45397f5d-5981-4c77-b2b3-fc36d6e9b728"
+version = "1.6.3"
+
 [[deps.Unzip]]
 git-tree-sha1 = "ca0969166a028236229f63514992fc073799bb78"
 uuid = "41fe7b60-77ed-43a1-b4f0-825fd5a5650d"
 version = "0.2.0"
+
+[[deps.VersionParsing]]
+git-tree-sha1 = "58d6e80b4ee071f5efd07fda82cb9fbe17200868"
+uuid = "81def892-9a0e-5fdd-b105-ffc91e053289"
+version = "1.3.0"
 
 [[deps.Wayland_jll]]
 deps = ["Artifacts", "Expat_jll", "JLLWrappers", "Libdl", "Libffi_jll", "Pkg", "XML2_jll"]
@@ -1813,9 +1615,9 @@ version = "1.2.12+3"
 
 [[deps.Zstd_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl"]
-git-tree-sha1 = "c6edfe154ad7b313c01aceca188c05c835c67360"
+git-tree-sha1 = "49ce682769cd5de6c72dcf1b94ed7790cd08974c"
 uuid = "3161d3a3-bdf6-5164-811a-617609db77b4"
-version = "1.5.4+0"
+version = "1.5.5+0"
 
 [[deps.fzf_jll]]
 deps = ["Artifacts", "JLLWrappers", "Libdl", "Pkg"]
@@ -1888,38 +1690,30 @@ version = "1.4.1+0"
 """
 
 # ╔═╡ Cell order:
+# ╟─63508634-20f2-4358-8cdd-c2b96f9cc1a5
 # ╟─f3f76c55-83ca-4842-98fa-d7036ac5afd3
-# ╟─58ca203c-6b0b-4d3e-a4d6-5056ebb46270
+# ╠═58ca203c-6b0b-4d3e-a4d6-5056ebb46270
 # ╟─94f5c04e-1438-4adb-86d2-5aafacd7a08d
 # ╟─4c9aa152-7797-410b-95e2-9dea032c7b9c
 # ╠═bc0e2e31-760e-43f8-9a61-7f6e721d9a7c
 # ╠═d4a0831c-93ee-4060-9d20-db22f9c945bc
-# ╠═1bd924c4-2213-4272-9681-f682674fab6d
+# ╟─1bd924c4-2213-4272-9681-f682674fab6d
 # ╟─145e2a12-ff2c-42d1-8149-f0f0799de49c
 # ╟─e0a55b3b-80d0-4179-8db1-dd4d006bccfa
-# ╠═ff19c6f4-bf77-11ed-27f5-bfe29fe9ec7e
-# ╠═8baabf2e-5c73-4b28-8a5b-d2429526a18e
-# ╟─97c97540-edc5-4acb-8c13-72168885195f
-# ╟─b399a931-097c-4e43-824c-0c06bbc85070
-# ╟─75b15476-dbf8-4d76-9db3-ea0bcd90ed2d
-# ╟─3d695e08-2725-491d-bd0b-817c12b104a7
-# ╟─90f7590f-326a-43de-ad0f-842dcde0aa5d
-# ╟─35e78754-0c2a-48e7-8be5-74b827b59da0
-# ╟─0ca4a404-d62e-47f7-b471-ec4685dba741
-# ╠═dc7470b6-f4e5-43e6-96bc-c770700679f5
-# ╠═8995bcbd-2f9f-4226-bc0b-47388f343976
-# ╠═5211b793-b5e5-453b-a907-a6e3e873c783
-# ╟─7e7a72e4-b78a-462f-be27-8fc1008e3ce9
-# ╟─9cbce53c-359b-4a19-976f-be51f295edca
-# ╠═576b4416-db0d-468a-92c0-2ecf4d85bcd7
-# ╠═b157f590-174e-461f-8596-525e850c7fc0
-# ╠═19727f0a-0ad1-4a59-b36d-b2f464193e94
-# ╠═8e209e6c-d14c-4a58-b913-122068739478
-# ╠═427a0203-669c-4746-ba7d-f9b0bb198a71
+# ╟─ff19c6f4-bf77-11ed-27f5-bfe29fe9ec7e
+# ╠═3fcebe46-c539-4397-ba79-b5baf097381e
+# ╠═720d822a-abcc-4a6d-80b9-f90b80b55b1a
+# ╠═cb601515-0aee-4800-a01f-bae7462e8b62
+# ╠═36d80e39-0795-4394-81be-4bee686184c6
+# ╠═24beaf35-ec00-492c-8725-2c6a5da7ab9c
+# ╠═1437da67-1f8a-4792-9958-ba1fa4b24bbd
+# ╟─e0f7b600-7141-47e5-b58a-7f1eae93fb76
+# ╟─1b2cc453-3449-4e39-b91d-b126d50a36de
+# ╟─371d4a0b-70ba-4366-9e0c-2642501f97c9
+# ╠═96a14901-fd0b-4c98-be34-a2a6c16e69f7
+# ╟─4a9b639c-e6f7-4cd5-8a2e-8681cebaf4a2
+# ╠═c2798ef3-27f4-4870-9c44-5165e46e73a6
 # ╟─8bb3ba1a-2614-4a00-b6a7-be35b43ab061
-# ╠═f9372f07-c690-47c8-b3d6-98fc99ce9ba6
-# ╠═60bac1af-6546-4a66-b143-e88b034cd5b6
-# ╠═b3d71f34-ed92-4720-91ea-a6aa71a2d16e
-# ╠═c2bd944d-7abd-4eb1-a4ec-92021689d4cd
+# ╠═86bf6b96-4e5f-4170-801b-eb8f10e80a7e
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002

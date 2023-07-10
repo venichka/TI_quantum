@@ -195,10 +195,11 @@ function p_ab(alpha::Complex, beta::Complex, n_1::Int,
     CC = AcbField(precision)
     alpha = CC(real(alpha))
     beta = CC(real(beta))
-    (exp(-abs(alpha)^2.0 - abs(beta)^2.0) *
-    sum([abs(alpha)^(2.0*n) * abs(beta)^(2.0*(n - n_1 + n_2)) *
-    (1/(Factorial_1(n) * Factorial_1(n -  n_1 + n_2))) * 
-    abs(c_l_hyper(n, n-n_1+n_2, min(n_1, n_2) - min(n, n-n_1+n_2), r))^2.0
+    (abs(convert(Float64, exp(-abs(alpha)^2.0 - abs(beta)^2.0))) *
+    sum([
+        abs(convert(Float64, abs(alpha)^(2.0*n) * abs(beta)^(2.0*(n - n_1 + n_2)) *
+        (1/(Factorial_1(n) * Factorial_1(n -  n_1 + n_2))) * 
+        abs(c_l_hyper(n, n-n_1+n_2, min(n_1, n_2) - min(n, n-n_1+n_2), r))^2.0))
     for n = abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2))):abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2)))+num]) )
 end
 

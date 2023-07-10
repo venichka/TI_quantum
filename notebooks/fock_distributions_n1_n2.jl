@@ -53,7 +53,10 @@ begin
 end
 
 # ╔═╡ dab45c67-5af9-405b-aeb4-4d349a0bb5e9
+# ╠═╡ disabled = true
+#=╠═╡
 sum([abs.(real(convert(ComplexF64,c_l_hyper(50, 50, l, 0.001)))).^2 for l=-50:100000])
+  ╠═╡ =#
 
 # ╔═╡ 38a10c4e-9f03-4ffc-bb19-c51f8cf13371
 @bind r_slider PlutoUI.Slider(r_list, default=r_list[end])
@@ -73,9 +76,9 @@ let
 		end
 	end
 	#prob = [abs.(real(convert(ComplexF64,c_l_hyper(n_i, n_i, l_j, r_slider)))).^2 for n_i=0:NMAX-1, l_j=0:NMAX-1]
-	heatmap(l, n, prob.^(1/3), aspect_ratio = 1, 
-		xlabel = L"$l\;$(number of pairs)",
-		ylabel = L"n_1, n_2 = n",
+	heatmap(n, l, (prob.^(1/3))', aspect_ratio = 1/3, 
+		ylabel = L"$l\;$(number of pairs)",
+		xlabel = L"n_1, n_2 = n",
 	)
 	annotate!([(NMAX ÷ 5 * 1, NMAX ÷ 10 * 9, (L"r = "*string(round(r_slider, digits=3)), 12, :blue, :center))])
 end
@@ -83,7 +86,6 @@ end
 # ╔═╡ Cell order:
 # ╟─b6ce4930-5d86-421e-bfcd-09addd6f5f9f
 # ╠═e2a6ec34-defa-11ed-36e9-01e8a5006b3a
-# ╟─4cd1a58b-2aa4-49db-ad78-9b6963a2ca48
 # ╠═5186070a-c993-41f9-a34a-d18c8fd06e28
 # ╠═138a0225-abb6-4b2f-accd-8b53563c9711
 # ╠═dab45c67-5af9-405b-aeb4-4d349a0bb5e9
