@@ -25,14 +25,15 @@ begin
 end
 
 begin
-    NMAX = 20
+    NMAX = 50
     NMAX_r = 30
     prob_ab_NMAX = zeros(NMAX, NMAX, NMAX_r)
-    # r_list = range(0.01, 0.99, NMAX_r)
-    r_list = 10.0.^(range(0.005, 2, NMAX_r))
+    r_list = range(0.01, 0.99, NMAX_r)
+    # r_list = 10.0.^(range(0.005, 2, NMAX_r))
     # r_list = range(1.01, 100, NMAX_r)
-    alpha = 3.0 + 1im
-    beta = 3.0 + 1im
+    alpha = 5.0
+    beta = 5.0
+    phase_a = [0, 1]  # [0, 1] -- exp(i π * 0 / 1)
     num = 100
     print("done")
 end
@@ -46,7 +47,8 @@ begin
         n_2 = jj - 1
         r = r_list[kk]
         lock(lk) do
-            result = p_ab(alpha, beta, n_1, n_2, r, num)
+            result = p_ab(alpha, beta, n_1, n_2, r, num; 
+                          phase_fraction_a=phase_a)
             prob_ab_NMAX[ii, jj, kk] = result
             next!(p)
         end
@@ -54,11 +56,23 @@ begin
     finish!(p)
 end
 
+sum(prob_ab_NMAX[:,:,3])
+
 # Check: mean number of photons in the 2d mode
-sum([sum(prob_ab_NMAX[:,:,1], dims=2)[i]*(i-1) for i = 1:NMAX])
+sum([sum(prob_ab_NMAX[:,:,19], dims=2)[i]*(i-1) for i = 1:NMAX])
+plot(r_list, 
+    [sum([sum(prob_ab_NMAX[:,:,k], dims=2)[i]*(i-1) for i = 1:NMAX])
+    for k in eachindex(r_list)], 
+    # xscale=:log10,
+    )
+plot(r_list, 
+    [sum(prob_ab_NMAX[:,:,k])
+    for k in eachindex(r_list)], 
+    # xscale=:log10,
+    )
 
 let 
-    idx = 8
+    idx = 30
 	
 	xs = [string(i) for i in 0:NMAX-1]
 	ys = xs
@@ -99,10 +113,12 @@ let
                     "p_ab" => prob_ab_NMAX,
     )
 
-    NAME_PART = "alpha"*string(real(alpha))*"_beta"*string(real(beta))*"_numsum"*string(num)*".h5"
-    save(PATH_DATA*"coh_photon_distrib_r_larger1_"*NAME_PART, data_dict)
+    NAME_PART = "alpha"*string(real(alpha))*"_beta"*string(real(beta))*"_numsum"*string(num)*"_more_points.h5"
+    # save(PATH_DATA*"coh_photon_distrib_r_larger1_"*NAME_PART, data_dict)
+    save(PATH_DATA*"coh_photon_distrib_"*NAME_PART, data_dict)
 
-    data_dict_loaded = load(PATH_DATA*"coh_photon_distrib_r_larger1_"*NAME_PART)
+    # data_dict_loaded = load(PATH_DATA*"coh_photon_distrib_r_larger1_"*NAME_PART)
+    data_dict_loaded = load(PATH_DATA*"coh_photon_distrib_"*NAME_PART)
     data_dict_loaded["p_ab"] == data_dict["p_ab"]
 end
 

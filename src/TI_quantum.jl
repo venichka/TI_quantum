@@ -77,7 +77,7 @@ Computes the coefficient `v` in the Bogoliubov transformation for a single time 
 - The value of the coefficient `v`.
 """
 function v(r::Real)
-    0.5*(-1.0+r)/sqrt(r)
+    0.5*(1.0-r)/sqrt(r)
 end
 
 
@@ -163,7 +163,7 @@ function c_l_hyper(n_1::Int, n_2::Int, l::Int, r::Real; precision=4096)
     u_0 = big(u(r))
     v_0 = big(v(r))
     (
-    sign(u_0) / u_0 * conj(u_0)^n_1 * (- (v_0 / u_0))^l * 
+    1 / abs(u_0) * conj(u_0)^n_1 * (- (v_0 / u_0))^l * 
     sqrt((Factorial_1(n_1 + l) / Factorial_1(n_1)) * 
          (Factorial_1(n_2 + l) / Factorial_1(n_2))) *
     u_0^(-n_2) *  
@@ -190,17 +190,19 @@ Computes the probability to detect `n_1` and `n_2` photons in `+k` and `-k` mode
 # Returns:
 - The probability to detect `n_1` and `n_2` photons in `+k` and `-k` modes.
 """
-function p_ab(alpha::Complex, beta::Complex, n_1::Int, 
-              n_2::Int, r::Real, num::Int; precision=4096)
+function p_ab(alpha::Real, beta::Real, n_1::Int, 
+              n_2::Int, r::Real, num::Int; precision=4096, phase_fraction_a::Vector{Int}=[0, 1], 
+              phase_fraction_b::Vector{Int}=[0, 1])
+    C = CalciumField()
     CC = AcbField(precision)
-    alpha = CC(real(alpha))
-    beta = CC(real(beta))
+    alpha = alpha * CC(exp(C(1im)*C(pi)*phase_fraction_a[1]/phase_fraction_a[2]))
+    beta = beta * CC(exp(C(1im)*C(pi)*phase_fraction_b[1]/phase_fraction_b[2]))
     (abs(convert(Float64, exp(-abs(alpha)^2.0 - abs(beta)^2.0))) *
-    sum([
-        abs(convert(Float64, abs(alpha)^(2.0*n) * abs(beta)^(2.0*(n - n_1 + n_2)) *
-        (1/(Factorial_1(n) * Factorial_1(n -  n_1 + n_2))) * 
-        abs(c_l_hyper(n, n-n_1+n_2, min(n_1, n_2) - min(n, n-n_1+n_2), r))^2.0))
-    for n = abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2))):abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2)))+num]) )
+    abs(sum([
+        convert(ComplexF64, (alpha)^(n) * (beta)^((n - n_1 + n_2)) *
+        (1/sqrt(Factorial_1(n) * Factorial_1(n -  n_1 + n_2))) * 
+        c_l_hyper(n, n-n_1+n_2, min(n_1, n_2) - min(n, n-n_1+n_2), r))
+    for n = abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2))):abs(n_1 - n_2) * Int(floor(heaviside(n_1 - n_2)))+num]))^2 )
 end
 
 
