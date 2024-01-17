@@ -31,9 +31,9 @@ begin
     r_list = range(0.01, 0.99, NMAX_r)
     # r_list = 10.0.^(range(0.005, 2, NMAX_r))
     # r_list = range(1.01, 100, NMAX_r)
-    alpha = 5.0
-    beta = 5.0
-    phase_a = [0, 1]  # [0, 1] -- exp(i π * 0 / 1)
+    alpha = 3.0
+    beta = 3.0
+    phase_a = [1, 1]  # [0, 1] -- exp(i π * 0 / 1)
     num = 100
     print("done")
 end
@@ -72,7 +72,7 @@ plot(r_list,
     )
 
 let 
-    idx = 30
+    idx = 8
 	
 	xs = [string(i) for i in 0:NMAX-1]
 	ys = xs
