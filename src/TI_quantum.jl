@@ -4,7 +4,7 @@ using BigCombinatorics
 using Nemo
 
 export path, heaviside, Factorial_1, Binomial_1
-export u, v, c_l_hyper, p_ab
+export u, v, c_l_hyper, p_ab, p_s_fock
 export op_average, g2_function, e_field_average, e_field_k_average
 
 # function definitions go here
@@ -163,14 +163,72 @@ function c_l_hyper(n_1::Int, n_2::Int, l::Int, r::Real; precision=4096)
     u_0 = big(u(r))
     v_0 = big(v(r))
     (
-    1 / abs(u_0) * conj(u_0)^n_1 * (- (v_0 / u_0))^l * 
-    sqrt((Factorial_1(n_1 + l) / Factorial_1(n_1)) * 
+    1 / abs(u_0) * conj(u_0)^n_1 * (- (v_0 / u_0))^l *
+    sqrt((Factorial_1(n_1 + l) / Factorial_1(n_1)) *
          (Factorial_1(n_2 + l) / Factorial_1(n_2))) *
-    u_0^(-n_2) *  
-        hypergeometric_2f1(CC(-n_1), CC(n_2 + l + 1), CC(l + 1), 
-            CC(abs(v_0)^2 / abs(u_0)^2); flags=1)
+    u_0^(-n_2) *
+        hypergeometric_2f1(CC(-n_1), CC(n_2 + l + 1), CC(l + 1),
+            CC(abs2(v_0) / abs2(u_0)); flags=1)
     )
 end
+
+function c_l_hyper(n_1::Int, n_2::Int, l::Int, u::Complex, v::Complex; 
+                   precision=4096)
+    CC = AcbField(precision)
+    (
+    1 / abs(u) * conj(u)^n_1 * (- (v / u))^l * 
+    sqrt((Factorial_1(n_1 + l) / Factorial_1(n_1)) * 
+         (Factorial_1(n_2 + l) / Factorial_1(n_2))) *
+        u^(-n_2) *
+        convert(ComplexF64,
+                hypergeometric_2f1(CC(-n_1), CC(n_2 + l + 1), CC(l + 1),
+                                   CC(abs2(v) / abs2(u)); flags=1))
+    )
+end
+
+function c_l_hyper(n_1::Int, n_2::Int, l::Int, u::Real, v::Real; 
+                   precision=4096)
+    CC = AcbField(precision)
+    return convert(Float64,
+                   1 / abs(u) * u^n_1 * (- (v / u))^l * 
+                   sqrt((Factorial_1(n_1 + l) / Factorial_1(n_1)) * 
+                        (Factorial_1(n_2 + l) / Factorial_1(n_2))) *
+                   u^(-n_2) *
+                   convert(ComplexF64,
+                           hypergeometric_2f1(CC(-n_1), CC(n_2 + l + 1),
+                                              CC(l + 1),
+                                              CC(abs2(v) / abs2(u)); flags=1))
+                   )
+end
+
+
+"""
+    TI_quantum.p_s_fock(n_1::Int, n_2::Int, s::Int, u::Complex, v::Complex; precision=4096)
+
+Computes the probability distribution for the number of photons in modes for the ininitial Fock state using the `c_l_hyper` function.
+
+# Arguments:
+- `n_1::Int`: The number of particles in the first mode.
+- `n_2::Int`: The number of particles in the second mode.
+- `s::Int`: The number of photon pairs produced.
+- `u::Complex`: A complex number related to the system parameters.
+- `v::Complex`: A complex number related to the system parameters.
+- `precision::Int`: The precision used in the calculations (default is 4096).
+
+# Returns:
+- The probability distribution for the number of photons in modes.
+"""
+function p_s_fock(n_1::Int, n_2::Int, s::Int, u::Complex, v::Complex;
+                  precision=4096)
+    coeff = c_l_hyper(n_1, n_2, s, u, v; precision=precision)
+    return abs2(coeff)
+end
+function p_s_fock(n_1::Int, n_2::Int, s::Int, u::Real, v::Real;
+                  precision=4096)
+    coeff = c_l_hyper(n_1, n_2, s, u, v; precision=precision)
+    return abs2(coeff)
+end
+
 
 
 """

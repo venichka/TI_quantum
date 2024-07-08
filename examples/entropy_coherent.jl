@@ -22,7 +22,7 @@ begin
 	Factorial_1()
 
 	NMAX = 20
-	PATH_FIGS, PATH_DATA = path()
+	PATH_FIGS, PATH_DATA = ["../../Figs/", "../../Data/"]
 end
 
 function coherent_state(alpha::Complex, beta::Complex, r::Real,
@@ -53,8 +53,8 @@ end
 begin
     n_terms = 20
 	alpha_list = [0.5]# range(0.5, 3.0, 6)
-	r_list = range(0.1, 0.999, 20)
-	phi_list = range(0.0, pi, 9)
+	r_list = range(0.1, 0.999, 200)
+	phi_list = range(0.0, pi, 2)
 	entropy_ent_vn = zeros(length(alpha_list), length(phi_list), length(r_list))
 end
 
@@ -65,10 +65,11 @@ begin
 		r = r_list[j]
 		
 		# compute coherent state
-		ψ = coherent_state(alpha*exp(1.0im*ϕ), alpha, r, n_terms)
+		# ψ = coherent_state(alpha*exp(1.0im*ϕ), alpha, r, n_terms)
+		ψ = fock_state(1, 1, r, n_terms)
 		
 		# find the reduced density matrix
-		ρ_red = ptrace(tensor(ψ, dagger(ψ)), 1)
+		# ρ_red = ptrace(tensor(ψ, dagger(ψ)), 1)
 		
 		# compute entanglement entropy
 		# entropy_ent_vn[i, k, j] = real(entropy_vn(ρ_red))
@@ -88,7 +89,8 @@ let
 				xlabel=L"r = n_0/n_1",
 				ylabel=L"S_\mathrm{ent}",
 				#title=L"\alpha = 0.5",
-                yscale=:log10,
+                # yscale=:log10,
+                xscale=:log10,
 				line = 2,
 		),
 		plot(phi_list/pi, entropy_ent_vn[1,:,ind], 
